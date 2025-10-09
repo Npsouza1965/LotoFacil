@@ -31,7 +31,7 @@ def exibir_jogo():
         
         st.markdown("---")
         
-        # Análise de frequência (exemplo)
+        # Análise de frequência
         st.subheader("📈 Frequência dos Números")
         todos_numeros = []
         for i in range(1, 16):
@@ -41,19 +41,72 @@ def exibir_jogo():
         
         if todos_numeros:
             frequencia = Counter(todos_numeros)
+            total_sorteios = len(todos_numeros)
             
-            # Mostrar os 15 números mais frequentes
+            # Calcular percentuais
+            frequencia_com_percentual = {}
+            for num in range(1, 26):
+                freq = frequencia.get(num, 0)
+                percentual = (freq / total_sorteios) * 100
+                frequencia_com_percentual[num] = {
+                    'frequencia': freq,
+                    'percentual': percentual
+                }
+            
+            # Exibir frequência em 5 colunas com 5 números cada
+            st.write("**Frequência de Todos os Números (1-25):**")
+            
+            # Criar 5 colunas
+            cols = st.columns(5)
+            
+            # Dividir os números em 5 grupos de 5
+            grupos = []
+            for i in range(5):
+                grupo = list(range(i*5 + 1, i*5 + 6))
+                grupos.append(grupo)
+            
+            # Exibir cada grupo em uma coluna
+            for col_idx, col in enumerate(cols):
+                with col:
+                    for num in grupos[col_idx]:
+                        if num <= 25:  # Garantir que só vai até 25
+                            dados = frequencia_com_percentual[num]
+                            st.markdown(
+                                f"""
+                                <div style='
+                                    text-align: center; 
+                                    padding: 8px; 
+                                    border: 2px solid #1E88E5; 
+                                    border-radius: 8px; 
+                                    margin: 4px; 
+                                    background-color: #f8f9fa;
+                                    font-size: 0.9em;
+                                '>
+                                    <strong>Nº {num}</strong><br>
+                                    <span style='font-size: 0.8em;'>
+                                    {dados['frequencia']} vezes<br>
+                                    {dados['percentual']:.1f}%
+                                    </span>
+                                </div>
+                                """, 
+                                unsafe_allow_html=True
+                            )
+            
+            # Estatísticas adicionais
+            st.markdown("---")
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**Números Mais Sorteados:**")
-                for num, freq in frequencia.most_common(15):
-                    st.write(f"🎯 Número {num}: {freq} vezes")
-            
+                st.write("**📊 Estatísticas Gerais:**")
+                st.write(f"• Total de sorteios analisados: {total_sorteios}")
+                st.write(f"• Número mais frequente: {frequencia.most_common(1)[0][0]} ({frequencia.most_common(1)[0][1]} vezes)")
+                st.write(f"• Número menos frequente: {frequencia.most_common()[-1][0]} ({frequencia.most_common()[-1][1]} vezes)")
+                
             with col2:
-                st.write("**Números Menos Sorteados:**")
-                for num, freq in frequencia.most_common()[-15:]:
-                    st.write(f"⚡ Número {num}: {freq} vezes")
+                st.write("**🎯 Ranking Top 5:**")
+                for i, (num, freq) in enumerate(frequencia.most_common(5), 1):
+                    percentual = (freq / total_sorteios) * 100
+                    st.write(f"{i}º - Número {num}: {freq} vezes ({percentual:.1f}%)")
         
         # Sugestão de jogo (exemplo simples)
         st.markdown("---")
@@ -67,13 +120,27 @@ def exibir_jogo():
                 st.success("Sugestão baseada nos números mais frequentes:")
                 st.info(f"**{' - '.join(map(str, sugestao))}**")
                 
-                # Mostrar em formato de cartela
+                # Mostrar em formato de cartela responsiva
                 st.write("**Cartela:**")
-                cols = st.columns(5)
+                cols_cartela = st.columns(5)
                 for i, num in enumerate(sugestao):
-                    with cols[i % 5]:
-                        st.markdown(f"<div style='text-align: center; padding: 10px; border: 2px solid #1E88E5; border-radius: 10px; margin: 5px;'><strong>{num}</strong></div>", 
-                                  unsafe_allow_html=True)
+                    with cols_cartela[i % 5]:
+                        st.markdown(
+                            f"""
+                            <div style='
+                                text-align: center; 
+                                padding: 12px; 
+                                border: 2px solid #4CAF50; 
+                                border-radius: 10px; 
+                                margin: 5px; 
+                                background-color: #e8f5e8;
+                                font-size: 1.1em;
+                            '>
+                                <strong>{num}</strong>
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
         
         # Botão para recarregar arquivo
         st.markdown("---")
