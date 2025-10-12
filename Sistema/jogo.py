@@ -101,13 +101,22 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
     """Analisa o padrão de distribuição nos últimos concursos"""
     padroes = []
     
-    for _, row in df.iterrows().reverse():
+    # CORREÇÃO: Usar iterrows() normalmente e depois reverter a ordem se necessário
+    # Mas como o DataFrame já está ordenado por concurso decrescente, vamos percorrer normalmente
+    for idx, row in df.iterrows():
         # Coletar números do concurso
         numeros_concurso = []
         for i in range(1, 16):
             coluna = f'Bola{i}'
             if coluna in row and pd.notna(row[coluna]):
-                numeros_concurso.append(int(row[coluna]))
+                try:
+                    numeros_concurso.append(int(row[coluna]))
+                except (ValueError, TypeError):
+                    continue
+        
+        # Verificar se temos 15 números válidos
+        if len(numeros_concurso) != 15:
+            continue
         
         # Contar quantos números de cada grupo apareceram
         contagem_grupos = {
@@ -136,7 +145,7 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
     return padroes
 
 def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes, num_sugestoes=6):
-    """Gera sugestões baseadas na análise de padrões recentes"""
+    """Gera sugestões baseadas na análise de padrões recentes - SEGUINDO O HISTÓRICO"""
     sugestoes = []
     
     # Analisar padrões dos últimos 8 concursos
@@ -145,27 +154,101 @@ def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recente
     if not ultimos_8:
         return sugestoes
     
-    # Calcular médias dos grupos nos últimos concursos
+    # CORREÇÃO: Usar a distribuição REAL dos últimos concursos
+    # Calcular médias dos últimos 8 e arredondar para distribuição mais provável
     media_melhores_g1 = np.mean([p['melhores_g1'] for p in ultimos_8])
     media_melhores_g2 = np.mean([p['melhores_g2'] for p in ultimos_8])
     media_melhores_g3 = np.mean([p['melhores_g3'] for p in ultimos_8])
     media_piores_g1 = np.mean([p['piores_g1'] for p in ultimos_8])
     media_piores_g2 = np.mean([p['piores_g2'] for p in ultimos_8])
     
-    # Arredondar para números inteiros (probabilísticos)
+    # Arredondar para números inteiros mantendo a proporção histórica
     target_melhores_g1 = max(1, min(5, round(media_melhores_g1)))
     target_melhores_g2 = max(1, min(5, round(media_melhores_g2)))
     target_melhores_g3 = max(1, min(5, round(media_melhores_g3)))
     target_piores_g1 = max(1, min(5, round(media_piores_g1)))
     target_piores_g2 = max(1, min(5, round(media_piores_g2)))
     
-    st.write(f"🎯 **Metas baseadas nos últimos {len(ultimos_8)} concursos:**")
-    st.write(f"• Melhores G1: {target_melhores_g1} números")
-    st.write(f"• Melhores G2: {target_melhores_g2} números") 
-    st.write(f"• Melhores G3: {target_melhores_g3} números")
-    st.write(f"• Piores G1: {target_piores_g1} números")
-    st.write(f"• Piores G2: {target_piores_g2} números")
-    st.write(f"• **Total: {target_melhores_g1 + target_melhores_g2 + target_melhores_g3}M + {target_piores_g1 + target_piores_g2}P**")
+    total_melhores = target_melhores_g1 + target_melhores_g2 + target_melhores_g3
+    total_piores = target_piores_g1 + target_piores_g2
+    total_numeros = total_melhores + total_piores
+    
+    st.write(f"🎯 **Distribuição Baseada nos Últimos {len(ultimos_8)} Concursos:**")
+    st.write(f"• Melhores G1: {target_melhores_g1} números (média: {media_melhores_g1:.2f})")
+    st.write(f"• Melhores G2: {target_melhores_g2} números (média: {media_melhores_g2:.2f})") 
+    st.write(f"• Melhores G3: {target_melhores_g3} números (média: {media_melhores_g3:.2f})")
+    st.write(f"• Piores G1: {target_piores_g1} números (média: {media_piores_g1:.2f})")
+    st.write(f"• Piores G2: {target_piores_g2} números (média: {media_piores_g2:.2f})")
+    st.write(f"• **Total: {total_melhores}M + {total_piores}P = {total_numeros} números**")
+    
+    # Ajustar se não totalizar 15 (pode acontecer com arredondamentos)
+    if total_numeros != 15:
+        st.warning(f"⚠️ Ajustando distribuição para totalizar 15 números (atual: {total_numeros})")
+        
+        diferenca = 15 - total_numeros
+        if diferenca > 0:
+            # Adicionar aos grupos com maiores médias
+            medias_grupos = [
+                (media_melhores_g1, 'melhores_g1', target_melhores_g1),
+                (media_melhores_g2, 'melhores_g2', target_melhores_g2),
+                (media_melhores_g3, 'melhores_g3', target_melhores_g3),
+                (media_piores_g1, 'piores_g1', target_piores_g1),
+                (media_piores_g2, 'piores_g2', target_piores_g2)
+            ]
+            
+            # Ordenar por média descendente
+            medias_grupos.sort(key=lambda x: x[0], reverse=True)
+            
+            for i in range(diferenca):
+                for media, grupo, valor_atual in medias_grupos:
+                    if grupo.startswith('melhores') and valor_atual < 5:
+                        if grupo == 'melhores_g1':
+                            target_melhores_g1 += 1
+                        elif grupo == 'melhores_g2':
+                            target_melhores_g2 += 1
+                        elif grupo == 'melhores_g3':
+                            target_melhores_g3 += 1
+                        break
+                    elif grupo.startswith('piores') and valor_atual < 5:
+                        if grupo == 'piores_g1':
+                            target_piores_g1 += 1
+                        elif grupo == 'piores_g2':
+                            target_piores_g2 += 1
+                        break
+        else:
+            # Remover dos grupos com menores médias
+            diferenca = abs(diferenca)
+            medias_grupos = [
+                (media_melhores_g1, 'melhores_g1', target_melhores_g1),
+                (media_melhores_g2, 'melhores_g2', target_melhores_g2),
+                (media_melhores_g3, 'melhores_g3', target_melhores_g3),
+                (media_piores_g1, 'piores_g1', target_piores_g1),
+                (media_piores_g2, 'piores_g2', target_piores_g2)
+            ]
+            
+            # Ordenar por média ascendente
+            medias_grupos.sort(key=lambda x: x[0])
+            
+            for i in range(diferenca):
+                for media, grupo, valor_atual in medias_grupos:
+                    if grupo.startswith('melhores') and valor_atual > 1:
+                        if grupo == 'melhores_g1':
+                            target_melhores_g1 -= 1
+                        elif grupo == 'melhores_g2':
+                            target_melhores_g2 -= 1
+                        elif grupo == 'melhores_g3':
+                            target_melhores_g3 -= 1
+                        break
+                    elif grupo.startswith('piores') and valor_atual > 1:
+                        if grupo == 'piores_g1':
+                            target_piores_g1 -= 1
+                        elif grupo == 'piores_g2':
+                            target_piores_g2 -= 1
+                        break
+    
+    st.write(f"📊 **Distribuição Final Ajustada:**")
+    st.write(f"• Melhores: {target_melhores_g1 + target_melhores_g2 + target_melhores_g3} números")
+    st.write(f"• Piores: {target_piores_g1 + target_piores_g2} números")
     
     # Gerar sugestões
     tentativas = 0
@@ -175,7 +258,7 @@ def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recente
         tentativas += 1
         
         try:
-            # Selecionar números de cada grupo conforme as metas
+            # Selecionar números de cada grupo conforme as metas baseadas no histórico
             selecao_melhores_g1 = random.sample(grupos_melhores[0], target_melhores_g1)
             selecao_melhores_g2 = random.sample(grupos_melhores[1], target_melhores_g2)
             selecao_melhores_g3 = random.sample(grupos_melhores[2], target_melhores_g3)
@@ -410,6 +493,8 @@ def exibir_jogo():
             
     except Exception as e:
         st.error(f"❌ Erro ao processar o arquivo: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         st.info("💡 Tente fazer upload novamente com um arquivo válido.")
 
 def exibir_secao_upload():
