@@ -144,111 +144,121 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
     
     return padroes
 
+def calcular_media_ultimos_30(padroes_recentes):
+    """Calcula médias reais dos últimos 30 concursos"""
+    if len(padroes_recentes) < 30:
+        st.warning(f"⚠️ Apenas {len(padroes_recentes)} concursos disponíveis (ideal: 30)")
+        concursos_analisados = padroes_recentes
+    else:
+        concursos_analisados = padroes_recentes[:30]
+    
+    # Calcular médias reais dos últimos concursos
+    media_melhores_g1 = np.mean([p['melhores_g1'] for p in concursos_analisados])
+    media_melhores_g2 = np.mean([p['melhores_g2'] for p in concursos_analisados])
+    media_melhores_g3 = np.mean([p['melhores_g3'] for p in concursos_analisados])
+    media_piores_g1 = np.mean([p['piores_g1'] for p in concursos_analisados])
+    media_piores_g2 = np.mean([p['piores_g2'] for p in concursos_analisados])
+    
+    # Calcular distribuição M x P dos últimos concursos
+    dist_melhores_piores = Counter([p['distribuicao'] for p in concursos_analisados])
+    distribuicao_mais_comum = dist_melhores_piores.most_common(1)[0][0] if dist_melhores_piores else "10m x 5p"
+    
+    # Extrair números da distribuição mais comum
+    try:
+        m_count = int(distribuicao_mais_comum.split('m')[0])
+        p_count = int(distribuicao_mais_comum.split('x ')[1].split('p')[0])
+    except:
+        m_count = 10
+        p_count = 5
+    
+    return {
+        'media_melhores_g1': media_melhores_g1,
+        'media_melhores_g2': media_melhores_g2,
+        'media_melhores_g3': media_melhores_g3,
+        'media_piores_g1': media_piores_g1,
+        'media_piores_g2': media_piores_g2,
+        'distribuicao_mais_comum': distribuicao_mais_comum,
+        'target_melhores': m_count,
+        'target_piores': p_count,
+        'concursos_analisados': len(concursos_analisados)
+    }
+
 def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes, num_sugestoes=6):
-    """Gera sugestões baseadas na análise de padrões recentes - SEGUINDO O HISTÓRICO"""
+    """Gera sugestões baseadas na análise dos últimos 30 concursos - SEGUINDO O HISTÓRICO REAL"""
     sugestoes = []
     
-    # Analisar padrões dos últimos 8 concursos
-    ultimos_8 = padroes_recentes[:8] if len(padroes_recentes) >= 8 else padroes_recentes
+    # Analisar os últimos 30 concursos
+    analise_30 = calcular_media_ultimos_30(padroes_recentes)
     
-    if not ultimos_8:
-        return sugestoes
+    st.write(f"📊 **Análise dos Últimos {analise_30['concursos_analisados']} Concursos:**")
+    st.write(f"• Distribuição mais comum: **{analise_30['distribuicao_mais_comum']}**")
+    st.write(f"• Médias reais por grupo:")
+    st.write(f"  - Melhores G1: {analise_30['media_melhores_g1']:.2f}")
+    st.write(f"  - Melhores G2: {analise_30['media_melhores_g2']:.2f}")
+    st.write(f"  - Melhores G3: {analise_30['media_melhores_g3']:.2f}")
+    st.write(f"  - Piores G1: {analise_30['media_piores_g1']:.2f}")
+    st.write(f"  - Piores G2: {analise_30['media_piores_g2']:.2f}")
     
-    # CORREÇÃO: Usar a distribuição REAL dos últimos concursos
-    # Calcular médias dos últimos 8 e arredondar para distribuição mais provável
-    media_melhores_g1 = np.mean([p['melhores_g1'] for p in ultimos_8])
-    media_melhores_g2 = np.mean([p['melhores_g2'] for p in ultimos_8])
-    media_melhores_g3 = np.mean([p['melhores_g3'] for p in ultimos_8])
-    media_piores_g1 = np.mean([p['piores_g1'] for p in ultimos_8])
-    media_piores_g2 = np.mean([p['piores_g2'] for p in ultimos_8])
+    # Usar a distribuição mais comum dos últimos concursos
+    target_melhores = analise_30['target_melhores']
+    target_piores = analise_30['target_piores']
     
-    # Arredondar para números inteiros mantendo a proporção histórica
-    target_melhores_g1 = max(1, min(5, round(media_melhores_g1)))
-    target_melhores_g2 = max(1, min(5, round(media_melhores_g2)))
-    target_melhores_g3 = max(1, min(5, round(media_melhores_g3)))
-    target_piores_g1 = max(1, min(5, round(media_piores_g1)))
-    target_piores_g2 = max(1, min(5, round(media_piores_g2)))
+    st.write(f"🎯 **Distribuição Baseada no Histórico:** {target_melhores}M x {target_piores}P")
     
-    total_melhores = target_melhores_g1 + target_melhores_g2 + target_melhores_g3
-    total_piores = target_piores_g1 + target_piores_g2
-    total_numeros = total_melhores + total_piores
+    # Distribuir os melhores entre os grupos baseado nas médias reais
+    total_melhores_float = (analise_30['media_melhores_g1'] + 
+                           analise_30['media_melhores_g2'] + 
+                           analise_30['media_melhores_g3'])
     
-    st.write(f"🎯 **Distribuição Baseada nos Últimos {len(ultimos_8)} Concursos:**")
-    st.write(f"• Melhores G1: {target_melhores_g1} números (média: {media_melhores_g1:.2f})")
-    st.write(f"• Melhores G2: {target_melhores_g2} números (média: {media_melhores_g2:.2f})") 
-    st.write(f"• Melhores G3: {target_melhores_g3} números (média: {media_melhores_g3:.2f})")
-    st.write(f"• Piores G1: {target_piores_g1} números (média: {media_piores_g1:.2f})")
-    st.write(f"• Piores G2: {target_piores_g2} números (média: {media_piores_g2:.2f})")
-    st.write(f"• **Total: {total_melhores}M + {total_piores}P = {total_numeros} números**")
+    # Calcular proporções baseadas nas médias reais
+    prop_g1 = analise_30['media_melhores_g1'] / total_melhores_float if total_melhores_float > 0 else 0.33
+    prop_g2 = analise_30['media_melhores_g2'] / total_melhores_float if total_melhores_float > 0 else 0.33
+    prop_g3 = analise_30['media_melhores_g3'] / total_melhores_float if total_melhores_float > 0 else 0.34
     
-    # Ajustar se não totalizar 15 (pode acontecer com arredondamentos)
-    if total_numeros != 15:
-        st.warning(f"⚠️ Ajustando distribuição para totalizar 15 números (atual: {total_numeros})")
-        
-        diferenca = 15 - total_numeros
+    # Distribuir os piores entre os grupos baseado nas médias reais
+    total_piores_float = analise_30['media_piores_g1'] + analise_30['media_piores_g2']
+    prop_p1 = analise_30['media_piores_g1'] / total_piores_float if total_piores_float > 0 else 0.5
+    prop_p2 = analise_30['media_piores_g2'] / total_piores_float if total_piores_float > 0 else 0.5
+    
+    # Calcular targets por grupo (arredondando para manter proporções)
+    target_melhores_g1 = max(1, min(5, round(prop_g1 * target_melhores)))
+    target_melhores_g2 = max(1, min(5, round(prop_g2 * target_melhores)))
+    target_melhores_g3 = max(1, min(5, target_melhores - target_melhores_g1 - target_melhores_g2))
+    
+    target_piores_g1 = max(1, min(5, round(prop_p1 * target_piores)))
+    target_piores_g2 = max(1, min(5, target_piores - target_piores_g1))
+    
+    # Ajuste final para garantir que totalize 15
+    total_atual = (target_melhores_g1 + target_melhores_g2 + target_melhores_g3 + 
+                  target_piores_g1 + target_piores_g2)
+    
+    if total_atual != 15:
+        diferenca = 15 - total_atual
+        # Ajustar nos grupos com mais flexibilidade
         if diferenca > 0:
-            # Adicionar aos grupos com maiores médias
-            medias_grupos = [
-                (media_melhores_g1, 'melhores_g1', target_melhores_g1),
-                (media_melhores_g2, 'melhores_g2', target_melhores_g2),
-                (media_melhores_g3, 'melhores_g3', target_melhores_g3),
-                (media_piores_g1, 'piores_g1', target_piores_g1),
-                (media_piores_g2, 'piores_g2', target_piores_g2)
-            ]
-            
-            # Ordenar por média descendente
-            medias_grupos.sort(key=lambda x: x[0], reverse=True)
-            
-            for i in range(diferenca):
-                for media, grupo, valor_atual in medias_grupos:
-                    if grupo.startswith('melhores') and valor_atual < 5:
-                        if grupo == 'melhores_g1':
-                            target_melhores_g1 += 1
-                        elif grupo == 'melhores_g2':
-                            target_melhores_g2 += 1
-                        elif grupo == 'melhores_g3':
-                            target_melhores_g3 += 1
-                        break
-                    elif grupo.startswith('piores') and valor_atual < 5:
-                        if grupo == 'piores_g1':
-                            target_piores_g1 += 1
-                        elif grupo == 'piores_g2':
-                            target_piores_g2 += 1
-                        break
+            # Adicionar aos grupos que podem receber mais
+            if target_melhores_g1 < 5:
+                target_melhores_g1 += diferenca
+            elif target_melhores_g2 < 5:
+                target_melhores_g2 += diferenca
+            elif target_melhores_g3 < 5:
+                target_melhores_g3 += diferenca
         else:
-            # Remover dos grupos com menores médias
-            diferenca = abs(diferenca)
-            medias_grupos = [
-                (media_melhores_g1, 'melhores_g1', target_melhores_g1),
-                (media_melhores_g2, 'melhores_g2', target_melhores_g2),
-                (media_melhores_g3, 'melhores_g3', target_melhores_g3),
-                (media_piores_g1, 'piores_g1', target_piores_g1),
-                (media_piores_g2, 'piores_g2', target_piores_g2)
-            ]
-            
-            # Ordenar por média ascendente
-            medias_grupos.sort(key=lambda x: x[0])
-            
-            for i in range(diferenca):
-                for media, grupo, valor_atual in medias_grupos:
-                    if grupo.startswith('melhores') and valor_atual > 1:
-                        if grupo == 'melhores_g1':
-                            target_melhores_g1 -= 1
-                        elif grupo == 'melhores_g2':
-                            target_melhores_g2 -= 1
-                        elif grupo == 'melhores_g3':
-                            target_melhores_g3 -= 1
-                        break
-                    elif grupo.startswith('piores') and valor_atual > 1:
-                        if grupo == 'piores_g1':
-                            target_piores_g1 -= 1
-                        elif grupo == 'piores_g2':
-                            target_piores_g2 -= 1
-                        break
+            # Remover dos grupos que podem ceder
+            if target_melhores_g3 > 1:
+                target_melhores_g3 += diferenca  # diferenca é negativo
+            elif target_melhores_g2 > 1:
+                target_melhores_g2 += diferenca
+            elif target_melhores_g1 > 1:
+                target_melhores_g1 += diferenca
     
-    st.write(f"📊 **Distribuição Final Ajustada:**")
-    st.write(f"• Melhores: {target_melhores_g1 + target_melhores_g2 + target_melhores_g3} números")
-    st.write(f"• Piores: {target_piores_g1 + target_piores_g2} números")
+    st.write(f"📋 **Distribuição Final por Grupos:**")
+    st.write(f"• Melhores G1: {target_melhores_g1} números")
+    st.write(f"• Melhores G2: {target_melhores_g2} números")
+    st.write(f"• Melhores G3: {target_melhores_g3} números")
+    st.write(f"• Piores G1: {target_piores_g1} números")
+    st.write(f"• Piores G2: {target_piores_g2} números")
+    st.write(f"• **Total: {target_melhores}M + {target_piores}P = 15 números**")
     
     # Gerar sugestões
     tentativas = 0
@@ -283,8 +293,8 @@ def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recente
                         'melhores_g3': selecao_melhores_g3,
                         'piores_g1': selecao_piores_g1,
                         'piores_g2': selecao_piores_g2,
-                        'total_melhores': target_melhores_g1 + target_melhores_g2 + target_melhores_g3,
-                        'total_piores': target_piores_g1 + target_piores_g2
+                        'total_melhores': target_melhores,
+                        'total_piores': target_piores
                     })
         
         except ValueError:
@@ -363,7 +373,7 @@ def exibir_jogo():
         
         if padroes_recentes:
             # Criar DataFrame para exibição
-            df_padroes = pd.DataFrame(padroes_recentes[:10])  # Últimos 10
+            df_padroes = pd.DataFrame(padroes_recentes[:30])  # Últimos 30
             
             # Exibir tabela
             st.dataframe(
@@ -379,38 +389,43 @@ def exibir_jogo():
                         'distribuicao': 'Distribuição'
                     }
                 ),
-                use_container_width=True
+                use_container_width=True,
+                height=400
             )
             
-            # Estatísticas dos últimos 8
-            if len(padroes_recentes) >= 8:
-                ultimos_8 = padroes_recentes[:8]
-                st.write("**📈 Estatísticas dos Últimos 8 Concursos:**")
+            # Estatísticas dos últimos 30
+            if len(padroes_recentes) >= 30:
+                analise_30 = calcular_media_ultimos_30(padroes_recentes)
+                
+                st.write("**📈 Estatísticas dos Últimos 30 Concursos:**")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    dist_melhores_piores = Counter([p['distribuicao'] for p in ultimos_8])
-                    for dist, count in dist_melhores_piores.most_common():
+                    dist_melhores_piores = Counter([p['distribuicao'] for p in padroes_recentes[:30]])
+                    st.write("**Distribuições mais comuns:**")
+                    for dist, count in dist_melhores_piores.most_common(5):
                         st.write(f"• {dist}: {count} vezes")
                 
                 with col2:
-                    media_melhores = np.mean([p['total_melhores'] for p in ultimos_8])
-                    media_piores = np.mean([p['total_piores'] for p in ultimos_8])
-                    st.write(f"• Média Melhores: {media_melhores:.1f}")
-                    st.write(f"• Média Piores: {media_piores:.1f}")
+                    st.write("**Médias por grupo:**")
+                    st.write(f"• Melhores G1: {analise_30['media_melhores_g1']:.2f}")
+                    st.write(f"• Melhores G2: {analise_30['media_melhores_g2']:.2f}")
+                    st.write(f"• Melhores G3: {analise_30['media_melhores_g3']:.2f}")
+                    st.write(f"• Piores G1: {analise_30['media_piores_g1']:.2f}")
+                    st.write(f"• Piores G2: {analise_30['media_piores_g2']:.2f}")
         
         # SUGESTÕES INTELIGENTES
         st.markdown("---")
-        st.subheader("💡 Sugestões Inteligentes Baseadas em Padrões")
+        st.subheader("💡 Sugestões Inteligentes Baseadas nos Últimos 30 Concursos")
         
-        if st.button("🎯 Gerar Sugestões com Análise de Padrões", type="primary", use_container_width=True):
+        if st.button("🎯 Gerar Sugestões com Análise de 30 Concursos", type="primary", use_container_width=True):
             if not padroes_recentes:
-                st.error("❌ Não há dados suficientes para análise de padrões")
+                st.error("❌ Não há dados suficientes para análise")
             else:
                 sugestoes = gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes)
                 
                 if sugestoes:
-                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com análise de padrões!")
+                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nos últimos 30 concursos!")
                     
                     for i, sugestao in enumerate(sugestoes, 1):
                         st.markdown(f"##### 💡 Sugestão {i} ({sugestao['total_melhores']}M + {sugestao['total_piores']}P)")
