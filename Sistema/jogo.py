@@ -68,6 +68,148 @@ def intercalar_melhores_piores(melhores_sorted, piores_sorted):
             resultado.append(piores_sorted[i])
     return resultado
 
+def analisar_distribuicao_grupos(df):
+    """Analisa a distribuição dos números nos grupos de 5"""
+    # Calcular frequência de todos os números
+    todos_numeros = []
+    for i in range(1, 16):
+        coluna = f'Bola{i}'
+        if coluna in df.columns:
+            numeros_coluna = pd.to_numeric(df[coluna], errors='coerce').dropna().astype(int).tolist()
+            todos_numeros.extend(numeros_coluna)
+    
+    frequencia = Counter(todos_numeros)
+    
+    # Ordenar números por frequência (melhores = mais frequentes)
+    numeros_ordenados = sorted(range(1, 26), key=lambda x: frequencia.get(x, 0), reverse=True)
+    
+    # Dividir em grupos de 5
+    grupos_melhores = [
+        numeros_ordenados[0:5],   # Grupo 1 - Top 5 melhores
+        numeros_ordenados[5:10],  # Grupo 2 - Próximos 5 melhores  
+        numeros_ordenados[10:15]  # Grupo 3 - Últimos 5 melhores
+    ]
+    
+    grupos_piores = [
+        numeros_ordenados[15:20], # Grupo 4 - Primeiros 5 piores
+        numeros_ordenados[20:25]  # Grupo 5 - Últimos 5 piores
+    ]
+    
+    return grupos_melhores, grupos_piores, frequencia
+
+def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
+    """Analisa o padrão de distribuição nos últimos concursos"""
+    padroes = []
+    
+    for _, row in df.iterrows().reverse():
+        # Coletar números do concurso
+        numeros_concurso = []
+        for i in range(1, 16):
+            coluna = f'Bola{i}'
+            if coluna in row and pd.notna(row[coluna]):
+                numeros_concurso.append(int(row[coluna]))
+        
+        # Contar quantos números de cada grupo apareceram
+        contagem_grupos = {
+            'melhores_g1': len(set(numeros_concurso) & set(grupos_melhores[0])),
+            'melhores_g2': len(set(numeros_concurso) & set(grupos_melhores[1])),
+            'melhores_g3': len(set(numeros_concurso) & set(grupos_melhores[2])),
+            'piores_g1': len(set(numeros_concurso) & set(grupos_piores[0])),
+            'piores_g2': len(set(numeros_concurso) & set(grupos_piores[1]))
+        }
+        
+        total_melhores = contagem_grupos['melhores_g1'] + contagem_grupos['melhores_g2'] + contagem_grupos['melhores_g3']
+        total_piores = contagem_grupos['piores_g1'] + contagem_grupos['piores_g2']
+        
+        padroes.append({
+            'concurso': row['Concurso'],
+            'melhores_g1': contagem_grupos['melhores_g1'],
+            'melhores_g2': contagem_grupos['melhores_g2'],
+            'melhores_g3': contagem_grupos['melhores_g3'],
+            'piores_g1': contagem_grupos['piores_g1'],
+            'piores_g2': contagem_grupos['piores_g2'],
+            'total_melhores': total_melhores,
+            'total_piores': total_piores,
+            'distribuicao': f"{total_melhores}m x {total_piores}p"
+        })
+    
+    return padroes
+
+def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes, num_sugestoes=6):
+    """Gera sugestões baseadas na análise de padrões recentes"""
+    sugestoes = []
+    
+    # Analisar padrões dos últimos 8 concursos
+    ultimos_8 = padroes_recentes[:8] if len(padroes_recentes) >= 8 else padroes_recentes
+    
+    if not ultimos_8:
+        return sugestoes
+    
+    # Calcular médias dos grupos nos últimos concursos
+    media_melhores_g1 = np.mean([p['melhores_g1'] for p in ultimos_8])
+    media_melhores_g2 = np.mean([p['melhores_g2'] for p in ultimos_8])
+    media_melhores_g3 = np.mean([p['melhores_g3'] for p in ultimos_8])
+    media_piores_g1 = np.mean([p['piores_g1'] for p in ultimos_8])
+    media_piores_g2 = np.mean([p['piores_g2'] for p in ultimos_8])
+    
+    # Arredondar para números inteiros (probabilísticos)
+    target_melhores_g1 = max(1, min(5, round(media_melhores_g1)))
+    target_melhores_g2 = max(1, min(5, round(media_melhores_g2)))
+    target_melhores_g3 = max(1, min(5, round(media_melhores_g3)))
+    target_piores_g1 = max(1, min(5, round(media_piores_g1)))
+    target_piores_g2 = max(1, min(5, round(media_piores_g2)))
+    
+    st.write(f"🎯 **Metas baseadas nos últimos {len(ultimos_8)} concursos:**")
+    st.write(f"• Melhores G1: {target_melhores_g1} números")
+    st.write(f"• Melhores G2: {target_melhores_g2} números") 
+    st.write(f"• Melhores G3: {target_melhores_g3} números")
+    st.write(f"• Piores G1: {target_piores_g1} números")
+    st.write(f"• Piores G2: {target_piores_g2} números")
+    st.write(f"• **Total: {target_melhores_g1 + target_melhores_g2 + target_melhores_g3}M + {target_piores_g1 + target_piores_g2}P**")
+    
+    # Gerar sugestões
+    tentativas = 0
+    max_tentativas = 1000
+    
+    while len(sugestoes) < num_sugestoes and tentativas < max_tentativas:
+        tentativas += 1
+        
+        try:
+            # Selecionar números de cada grupo conforme as metas
+            selecao_melhores_g1 = random.sample(grupos_melhores[0], target_melhores_g1)
+            selecao_melhores_g2 = random.sample(grupos_melhores[1], target_melhores_g2)
+            selecao_melhores_g3 = random.sample(grupos_melhores[2], target_melhores_g3)
+            selecao_piores_g1 = random.sample(grupos_piores[0], target_piores_g1)
+            selecao_piores_g2 = random.sample(grupos_piores[1], target_piores_g2)
+            
+            # Combinar todas as seleções
+            jogo = selecao_melhores_g1 + selecao_melhores_g2 + selecao_melhores_g3 + selecao_piores_g1 + selecao_piores_g2
+            
+            # Verificar se temos exatamente 15 números únicos
+            if len(jogo) == 15 and len(set(jogo)) == 15:
+                jogo_ordenado = sorted(jogo)
+                chave = tuple(jogo_ordenado)
+                
+                # Verificar se já não geramos esta combinação
+                if not any(s['chave'] == chave for s in sugestoes):
+                    sugestoes.append({
+                        'chave': chave,
+                        'jogo': jogo_ordenado,
+                        'melhores_g1': selecao_melhores_g1,
+                        'melhores_g2': selecao_melhores_g2,
+                        'melhores_g3': selecao_melhores_g3,
+                        'piores_g1': selecao_piores_g1,
+                        'piores_g2': selecao_piores_g2,
+                        'total_melhores': target_melhores_g1 + target_melhores_g2 + target_melhores_g3,
+                        'total_piores': target_piores_g1 + target_piores_g2
+                    })
+        
+        except ValueError:
+            # Pode acontecer se tentarmos sample mais números do que existem no grupo
+            continue
+    
+    return sugestoes
+
 def exibir_jogo():
     verificar_estrutura()
     st.header("📊 Análise de Jogos - Lotofácil")
@@ -94,17 +236,8 @@ def exibir_jogo():
     try:
         df = pd.read_csv(CSV_PATH, sep=';', encoding='utf-8')
         
-        # DEBUG: Verificar os dados
-        with st.expander("🔍 DEBUG - Informações do DataFrame"):
-            st.write(f"• Shape: {df.shape}")
-            st.write(f"• Colunas: {list(df.columns)}")
-            st.write(f"• Primeiras linhas:")
-            st.dataframe(df.head(3))
-            
-            # Verificar se as colunas de bola existem
-            colunas_bola = [f'Bola{i}' for i in range(1, 16)]
-            colunas_existentes = [col for col in colunas_bola if col in df.columns]
-            st.write(f"• Colunas Bola encontradas: {colunas_existentes}")
+        # Ordenar por concurso (mais recentes primeiro)
+        df = df.sort_values('Concurso', ascending=False).reset_index(drop=True)
         
         # Informações básicas
         col1, col2, col3 = st.columns(3)
@@ -117,199 +250,153 @@ def exibir_jogo():
         
         st.markdown("---")
         
-        # Análise de frequência
-        st.subheader("📈 Frequência dos Números")
-        todos_numeros = []
+        # ANÁLISE AVANÇADA POR GRUPOS
+        st.subheader("🎯 Análise Avançada por Grupos de 5")
         
-        # Coletar todos os números de todas as bolas
-        for i in range(1, 16):
-            coluna = f'Bola{i}'
-            if coluna in df.columns:
-                # Converter para numérico e remover NaN
-                numeros_coluna = pd.to_numeric(df[coluna], errors='coerce').dropna().astype(int).tolist()
-                todos_numeros.extend(numeros_coluna)
+        # Calcular grupos
+        grupos_melhores, grupos_piores, frequencia = analisar_distribuicao_grupos(df)
         
-        # DEBUG: Verificar números coletados
-        with st.expander("🔍 DEBUG - Números Coletados"):
-            st.write(f"Total de números coletados: {len(todos_numeros)}")
-            st.write(f"Números únicos: {len(set(todos_numeros))}")
-            st.write(f"Range dos números: {min(todos_numeros) if todos_numeros else 'N/A'} - {max(todos_numeros) if todos_numeros else 'N/A'}")
+        # Exibir grupos
+        col1, col2 = st.columns(2)
         
-        if todos_numeros:
-            frequencia = Counter(todos_numeros)
-            total_sorteios = len(todos_numeros)
-            
-            # Calcular percentuais (para exibição)
-            frequencia_com_percentual = {}
-            for num in range(1, 26):
-                freq = frequencia.get(num, 0)
-                percentual = (freq / total_sorteios) * 100 if total_sorteios > 0 else 0
-                frequencia_com_percentual[num] = {
-                    'frequencia': freq,
-                    'percentual': percentual
-                }
-            
-            # Exibir frequência em 5 colunas com 5 números cada
-            st.write("**Frequência de Todos os Números (1-25):**")
-            
-            # Criar 5 colunas
-            cols = st.columns(5)
-            
-            # Dividir os números em 5 grupos de 5
-            grupos = []
-            for i in range(5):
-                grupo = list(range(i*5 + 1, i*5 + 6))
-                grupos.append(grupo)
-            
-            # Exibir cada grupo em uma coluna
-            for col_idx, col in enumerate(cols):
-                with col:
-                    for num in grupos[col_idx]:
-                        if num <= 25:
-                            dados = frequencia_com_percentual[num]
-                            # Cor baseada na frequência (opcional)
-                            cor_borda = "#1E88E5"  # Azul padrão
-                            if dados['frequencia'] > frequencia.most_common(1)[0][1] * 0.8:
-                                cor_borda = "#FF6B6B"  # Vermelho para muito frequentes
-                            elif dados['frequencia'] < frequencia.most_common()[-1][1] * 1.2:
-                                cor_borda = "#4ECDC4"  # Verde para pouco frequentes
-                            
-                            st.markdown(
-                                f"""
-                                <div style='
-                                    text-align: center; 
-                                    padding: 10px; 
-                                    border: 3px solid {cor_borda}; 
-                                    border-radius: 10px; 
-                                    margin: 5px; 
-                                    background-color: #f8f9fa;
-                                    font-size: 1em;
-                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                                    color: #000000;
-                                '>
-                                    <div style='font-weight: bold; font-size: 1.1em; color: #000000;'>Nº {num}</div>
-                                    <div style='font-size: 0.85em; margin-top: 5px; color: #000000;'>
-                                        {dados['frequencia']} vezes<br>
-                                        <strong style='color: #000000;'>{dados['percentual']:.1f}%</strong>
-                                    </div>
-                                </div>
-                                """, 
-                                unsafe_allow_html=True
-                            )
-            
-            # Estatísticas adicionais
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.write("**📊 Estatísticas Gerais:**")
-                st.write(f"• Total de sorteios analisados: {total_sorteios:,}")
-                st.write(f"• Total de concursos: {len(df):,}")
-                if frequencia.most_common(1):
-                    num_mais_freq, freq_mais = frequencia.most_common(1)[0]
-                    percent_mais = (freq_mais / total_sorteios) * 100
-                    st.write(f"• Número mais frequente: **{num_mais_freq}** ({freq_mais} vezes - {percent_mais:.1f}%)")
-                if frequencia.most_common():
-                    num_menos_freq, freq_menos = frequencia.most_common()[-1]
-                    percent_menos = (freq_menos / total_sorteios) * 100
-                    st.write(f"• Número menos frequente: **{num_menos_freq}** ({freq_menos} vezes - {percent_menos:.1f}%)")
-                
-            with col2:
-                st.write("**🎯 Ranking Top 5:**")
-                for i, (num, freq) in enumerate(frequencia.most_common(5), 1):
-                    percentual = (freq / total_sorteios) * 100
-                    emoji = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else "4️⃣" if i == 4 else "5️⃣"
-                    st.write(f"{emoji} **Número {num}**: {freq} vezes ({percentual:.1f}%)")
+        with col1:
+            st.write("**🏆 Grupos de Melhores Números:**")
+            for i, grupo in enumerate(grupos_melhores, 1):
+                numeros_com_freq = [f"{num} ({frequencia[num]}x)" for num in grupo]
+                st.write(f"**Grupo {i}:** {', '.join(numeros_com_freq)}")
         
-        # Sugestão de jogos: usar 15 melhores e 10 piores como pools
+        with col2:
+            st.write("**📉 Grupos de Piores Números:**")
+            for i, grupo in enumerate(grupos_piores, 1):
+                numeros_com_freq = [f"{num} ({frequencia[num]}x)" for num in grupo]
+                st.write(f"**Grupo {i+3}:** {', '.join(numeros_com_freq)}")
+        
+        # Analisar padrões recentes
+        padroes_recentes = analisar_padrao_concursos(df, grupos_melhores, grupos_piores)
+        
+        # Mostrar análise dos últimos concursos
         st.markdown("---")
-        st.subheader("💡 Sugestões de Jogos (15 melhores → escolher 9 / 10 piores → escolher 6)")
+        st.subheader("📊 Análise dos Últimos Concursos")
         
-        col_sug1, col_sug2 = st.columns([2, 1])
+        if padroes_recentes:
+            # Criar DataFrame para exibição
+            df_padroes = pd.DataFrame(padroes_recentes[:10])  # Últimos 10
+            
+            # Exibir tabela
+            st.dataframe(
+                df_padroes[['concurso', 'melhores_g1', 'melhores_g2', 'melhores_g3', 
+                           'piores_g1', 'piores_g2', 'distribuicao']].rename(
+                    columns={
+                        'concurso': 'Concurso',
+                        'melhores_g1': 'M-G1',
+                        'melhores_g2': 'M-G2', 
+                        'melhores_g3': 'M-G3',
+                        'piores_g1': 'P-G1',
+                        'piores_g2': 'P-G2',
+                        'distribuicao': 'Distribuição'
+                    }
+                ),
+                use_container_width=True
+            )
+            
+            # Estatísticas dos últimos 8
+            if len(padroes_recentes) >= 8:
+                ultimos_8 = padroes_recentes[:8]
+                st.write("**📈 Estatísticas dos Últimos 8 Concursos:**")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    dist_melhores_piores = Counter([p['distribuicao'] for p in ultimos_8])
+                    for dist, count in dist_melhores_piores.most_common():
+                        st.write(f"• {dist}: {count} vezes")
+                
+                with col2:
+                    media_melhores = np.mean([p['total_melhores'] for p in ultimos_8])
+                    media_piores = np.mean([p['total_piores'] for p in ultimos_8])
+                    st.write(f"• Média Melhores: {media_melhores:.1f}")
+                    st.write(f"• Média Piores: {media_piores:.1f}")
         
-        with col_sug1:
-            if st.button("🎯 Gerar 6 Sugestões (9 melhores + 6 piores)", type="primary", use_container_width=True):
-                if not todos_numeros or len(todos_numeros) == 0:
-                    st.error("❌ Não há dados suficientes para gerar sugestões")
+        # SUGESTÕES INTELIGENTES
+        st.markdown("---")
+        st.subheader("💡 Sugestões Inteligentes Baseadas em Padrões")
+        
+        if st.button("🎯 Gerar Sugestões com Análise de Padrões", type="primary", use_container_width=True):
+            if not padroes_recentes:
+                st.error("❌ Não há dados suficientes para análise de padrões")
+            else:
+                sugestoes = gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes)
+                
+                if sugestoes:
+                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com análise de padrões!")
+                    
+                    for i, sugestao in enumerate(sugestoes, 1):
+                        st.markdown(f"##### 💡 Sugestão {i} ({sugestao['total_melhores']}M + {sugestao['total_piores']}P)")
+                        
+                        # Mostrar distribuição por grupos
+                        cols_dist = st.columns(5)
+                        grupos_info = [
+                            (f"🏆 G1", sugestao['melhores_g1']),
+                            (f"🥈 G2", sugestao['melhores_g2']),
+                            (f"🥉 G3", sugestao['melhores_g3']),
+                            (f"📉 G4", sugestao['piores_g1']),
+                            (f"📊 G5", sugestao['piores_g2'])
+                        ]
+                        
+                        for col_idx, (nome, numeros) in enumerate(grupos_info):
+                            with cols_dist[col_idx]:
+                                st.markdown(f"**{nome}**")
+                                st.write(", ".join(map(str, sorted(numeros))))
+                        
+                        # Mostrar jogo completo intercalado
+                        melhores_todos = sugestao['melhores_g1'] + sugestao['melhores_g2'] + sugestao['melhores_g3']
+                        piores_todos = sugestao['piores_g1'] + sugestao['piores_g2']
+                        jogo_intercalado = intercalar_melhores_piores(sorted(melhores_todos), sorted(piores_todos))
+                        
+                        st.markdown("**🎲 Jogo Intercalado:**")
+                        numeros_formatados = " - ".join([f"**{num:02d}**" for num in jogo_intercalado])
+                        st.markdown(
+                            f"<div style='text-align: center; font-size: 1.1em; padding: 10px; background-color: #e8f5e8; border-radius: 10px; margin: 8px 0; color: #000000;'>{numeros_formatados}</div>",
+                            unsafe_allow_html=True
+                        )
+                        
+                        # Cartela visual
+                        cols_cartela = st.columns(5)
+                        for idx_num, num in enumerate(jogo_intercalado):
+                            with cols_cartela[idx_num % 5]:
+                                # Definir cor baseada no grupo
+                                if num in grupos_melhores[0]:
+                                    cor = "#FF6B6B"  # Vermelho - Grupo 1 melhores
+                                elif num in grupos_melhores[1]:
+                                    cor = "#4ECDC4"  # Verde - Grupo 2 melhores
+                                elif num in grupos_melhores[2]:
+                                    cor = "#45B7D1"  # Azul - Grupo 3 melhores
+                                elif num in grupos_piores[0]:
+                                    cor = "#F9A826"  # Laranja - Grupo 4 piores
+                                else:
+                                    cor = "#9966CC"  # Roxo - Grupo 5 piores
+                                
+                                st.markdown(
+                                    f"""
+                                    <div style='
+                                        text-align: center; 
+                                        padding: 12px; 
+                                        border: 3px solid {cor}; 
+                                        border-radius: 10px; 
+                                        margin: 3px; 
+                                        background: white;
+                                        font-size: 1.1em;
+                                        font-weight: bold;
+                                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                                        color: #000000;
+                                    '>{num}</div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+                        
+                        st.markdown("---")
+                
                 else:
-                    # Montar pools garantido 1..25 considerado
-                    # Ordena números de 1..25 por frequência descendente
-                    sorted_by_freq_desc = sorted(range(1, 26), key=lambda n: frequencia.get(n, 0), reverse=True)
-                    top15 = sorted_by_freq_desc[:15]
-                    bottom10 = sorted_by_freq_desc[-10:]
-                    
-                    # Tentar gerar 6 combinações únicas (ou o máximo possível)
-                    suggestions = []
-                    unique_keys = set()
-                    attempts = 0
-                    max_attempts = 500
-                    
-                    while len(suggestions) < 6 and attempts < max_attempts:
-                        attempts += 1
-                        # escolher aleatoriamente 9 dos 15 melhores e 6 dos 10 piores
-                        escolha_top = random.sample(top15, 9)
-                        escolha_bottom = random.sample(bottom10, 6)
-                        
-                        jogo = sorted(escolha_top + escolha_bottom)
-                        key = tuple(jogo)
-                        if key not in unique_keys:
-                            unique_keys.add(key)
-                            # armazenar as partes para permitir intercalamento na exibição
-                            suggestions.append({
-                                'top': sorted(escolha_top),
-                                'bottom': sorted(escolha_bottom),
-                                'jogo_sorted': jogo
-                            })
-                    
-                    if len(suggestions) == 0:
-                        st.error("❌ Não foi possível gerar sugestões únicas com os dados atuais.")
-                    else:
-                        if len(suggestions) < 6:
-                            st.warning(f"⚠️ Só foi possível gerar {len(suggestions)} combinações únicas após {attempts} tentativas.")
-                        
-                        st.success("🎉 Sugestões geradas:")
-                        # Exibir cada sugestão intercalando melhores/piores
-                        for i, s in enumerate(suggestions, start=1):
-                            melhores_s = s['top']
-                            piores_s = s['bottom']
-                            intercalado = intercalar_melhores_piores(melhores_s, piores_s)
-                            
-                            st.markdown(f"##### 💡 Sugestão {i}")
-                            numeros_formatados = " - ".join([f"**{num:02d}**" for num in intercalado])
-                            st.markdown(
-                                f"<div style='text-align: center; font-size: 1.15em; padding: 10px; background-color: #e8f5e8; border-radius: 10px; margin: 8px 0; color: #000000;'>{numeros_formatados}</div>",
-                                unsafe_allow_html=True
-                            )
-                            
-                            # Mostrar em formato de cartela responsiva (distribuir em 5 colunas)
-                            cols_cartela = st.columns(5)
-                            for idx_num, num in enumerate(intercalado):
-                                with cols_cartela[idx_num % 5]:
-                                    st.markdown(
-                                        f"""
-                                        <div style='
-                                            text-align: center; 
-                                            padding: 15px; 
-                                            border: 3px solid #4CAF50; 
-                                            border-radius: 12px; 
-                                            margin: 5px; 
-                                            background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
-                                            font-size: 1.2em;
-                                            font-weight: bold;
-                                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                                            color: #000000;
-                                        '>{num}</div>
-                                        """,
-                                        unsafe_allow_html=True
-                                    )
-        
-        with col_sug2:
-            if st.button("🔄 Gerar Aleatório", use_container_width=True):
-                if todos_numeros:
-                    # Gerar uma sugestão aleatória (15 números únicos entre 1-25)
-                    sugestao_aleatoria = sorted(np.random.choice(range(1, 26), 15, replace=False))
-                    st.info("🎲 **Sugestão aleatória:**")
-                    st.markdown(f"<div style='text-align: center; font-size: 1.2em; padding: 10px; background-color: #e3f2fd; border-radius: 8px; color: #000000;'>{' - '.join(map(str, sugestao_aleatoria))}</div>", unsafe_allow_html=True)
+                    st.error("❌ Não foi possível gerar sugestões com os padrões atuais")
         
         # Botão para recarregar arquivo
         st.markdown("---")
