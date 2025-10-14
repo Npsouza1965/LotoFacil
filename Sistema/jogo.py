@@ -184,14 +184,21 @@ def calcular_media_ultimos_30(padroes_recentes):
     }
 
 def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes, num_sugestoes=6):
-    """Gera sugestões baseadas na análise dos últimos 30 concursos - SEGUINDO O HISTÓRICO REAL"""
+    """Gera sugestões baseadas nas 3 distribuições mais comuns dos últimos 30 concursos"""
     sugestoes = []
     
     # Analisar os últimos 30 concursos
     analise_30 = calcular_media_ultimos_30(padroes_recentes)
     
+    # Encontrar as 3 distribuições mais comuns
+    dist_melhores_piores = Counter([p['distribuicao'] for p in padroes_recentes[:30]])
+    distribuicoes_mais_comuns = dist_melhores_piores.most_common(3)
+    
     st.write(f"📊 **Análise dos Últimos {analise_30['concursos_analisados']} Concursos:**")
-    st.write(f"• Distribuição mais comum: **{analise_30['distribuicao_mais_comum']}**")
+    st.write(f"• Distribuições mais comuns:")
+    for i, (dist, count) in enumerate(distribuicoes_mais_comuns, 1):
+        st.write(f"  {i}ª: **{dist}** ({count} vezes)")
+    
     st.write(f"• Médias reais por grupo:")
     st.write(f"  - Melhores G1: {analise_30['media_melhores_g1']:.2f}")
     st.write(f"  - Melhores G2: {analise_30['media_melhores_g2']:.2f}")
@@ -199,107 +206,122 @@ def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recente
     st.write(f"  - Piores G1: {analise_30['media_piores_g1']:.2f}")
     st.write(f"  - Piores G2: {analise_30['media_piores_g2']:.2f}")
     
-    # Usar a distribuição mais comum dos últimos concursos
-    target_melhores = analise_30['target_melhores']
-    target_piores = analise_30['target_piores']
-    
-    st.write(f"🎯 **Distribuição Baseada no Histórico:** {target_melhores}M x {target_piores}P")
-    
-    # Distribuir os melhores entre os grupos baseado nas médias reais
-    total_melhores_float = (analise_30['media_melhores_g1'] + 
-                           analise_30['media_melhores_g2'] + 
-                           analise_30['media_melhores_g3'])
-    
-    # Calcular proporções baseadas nas médias reais
-    prop_g1 = analise_30['media_melhores_g1'] / total_melhores_float if total_melhores_float > 0 else 0.33
-    prop_g2 = analise_30['media_melhores_g2'] / total_melhores_float if total_melhores_float > 0 else 0.33
-    prop_g3 = analise_30['media_melhores_g3'] / total_melhores_float if total_melhores_float > 0 else 0.34
-    
-    # Distribuir os piores entre os grupos baseado nas médias reais
-    total_piores_float = analise_30['media_piores_g1'] + analise_30['media_piores_g2']
-    prop_p1 = analise_30['media_piores_g1'] / total_piores_float if total_piores_float > 0 else 0.5
-    prop_p2 = analise_30['media_piores_g2'] / total_piores_float if total_piores_float > 0 else 0.5
-    
-    # Calcular targets por grupo (arredondando para manter proporções)
-    target_melhores_g1 = max(1, min(5, round(prop_g1 * target_melhores)))
-    target_melhores_g2 = max(1, min(5, round(prop_g2 * target_melhores)))
-    target_melhores_g3 = max(1, min(5, target_melhores - target_melhores_g1 - target_melhores_g2))
-    
-    target_piores_g1 = max(1, min(5, round(prop_p1 * target_piores)))
-    target_piores_g2 = max(1, min(5, target_piores - target_piores_g1))
-    
-    # Ajuste final para garantir que totalize 15
-    total_atual = (target_melhores_g1 + target_melhores_g2 + target_melhores_g3 + 
-                  target_piores_g1 + target_piores_g2)
-    
-    if total_atual != 15:
-        diferenca = 15 - total_atual
-        # Ajustar nos grupos com mais flexibilidade
-        if diferenca > 0:
-            # Adicionar aos grupos que podem receber mais
-            if target_melhores_g1 < 5:
-                target_melhores_g1 += diferenca
-            elif target_melhores_g2 < 5:
-                target_melhores_g2 += diferenca
-            elif target_melhores_g3 < 5:
-                target_melhores_g3 += diferenca
-        else:
-            # Remover dos grupos que podem ceder
-            if target_melhores_g3 > 1:
-                target_melhores_g3 += diferenca  # diferenca é negativo
-            elif target_melhores_g2 > 1:
-                target_melhores_g2 += diferenca
-            elif target_melhores_g1 > 1:
-                target_melhores_g1 += diferenca
-    
-    st.write(f"📋 **Distribuição Final por Grupos:**")
-    st.write(f"• Melhores G1: {target_melhores_g1} números")
-    st.write(f"• Melhores G2: {target_melhores_g2} números")
-    st.write(f"• Melhores G3: {target_melhores_g3} números")
-    st.write(f"• Piores G1: {target_piores_g1} números")
-    st.write(f"• Piores G2: {target_piores_g2} números")
-    st.write(f"• **Total: {target_melhores}M + {target_piores}P = 15 números**")
-    
-    # Gerar sugestões
-    tentativas = 0
-    max_tentativas = 1000
-    
-    while len(sugestoes) < num_sugestoes and tentativas < max_tentativas:
-        tentativas += 1
-        
+    # Gerar 2 jogos para cada uma das 3 distribuições mais comuns
+    for dist_idx, (distribuicao, count) in enumerate(distribuicoes_mais_comuns):
+        if len(sugestoes) >= num_sugestoes:
+            break
+            
+        # Extrair números da distribuição atual
         try:
-            # Selecionar números de cada grupo conforme as metas baseadas no histórico
-            selecao_melhores_g1 = random.sample(grupos_melhores[0], target_melhores_g1)
-            selecao_melhores_g2 = random.sample(grupos_melhores[1], target_melhores_g2)
-            selecao_melhores_g3 = random.sample(grupos_melhores[2], target_melhores_g3)
-            selecao_piores_g1 = random.sample(grupos_piores[0], target_piores_g1)
-            selecao_piores_g2 = random.sample(grupos_piores[1], target_piores_g2)
-            
-            # Combinar todas as seleções
-            jogo = selecao_melhores_g1 + selecao_melhores_g2 + selecao_melhores_g3 + selecao_piores_g1 + selecao_piores_g2
-            
-            # Verificar se temos exatamente 15 números únicos
-            if len(jogo) == 15 and len(set(jogo)) == 15:
-                jogo_ordenado = sorted(jogo)
-                chave = tuple(jogo_ordenado)
-                
-                # Verificar se já não geramos esta combinação
-                if not any(s['chave'] == chave for s in sugestoes):
-                    sugestoes.append({
-                        'chave': chave,
-                        'jogo': jogo_ordenado,
-                        'melhores_g1': selecao_melhores_g1,
-                        'melhores_g2': selecao_melhores_g2,
-                        'melhores_g3': selecao_melhores_g3,
-                        'piores_g1': selecao_piores_g1,
-                        'piores_g2': selecao_piores_g2,
-                        'total_melhores': target_melhores,
-                        'total_piores': target_piores
-                    })
+            m_count = int(distribuicao.split('m')[0])
+            p_count = int(distribuicao.split('x ')[1].split('p')[0])
+        except:
+            m_count = 10
+            p_count = 5
         
-        except ValueError:
-            # Pode acontecer se tentarmos sample mais números do que existem no grupo
-            continue
+        st.write(f"🎯 **Gerando 2 jogos para {distribuicao} ({count} ocorrências):**")
+        
+        # Distribuir os melhores entre os grupos baseado nas médias reais
+        total_melhores_float = (analise_30['media_melhores_g1'] + 
+                               analise_30['media_melhores_g2'] + 
+                               analise_30['media_melhores_g3'])
+        
+        # Calcular proporções baseadas nas médias reais
+        prop_g1 = analise_30['media_melhores_g1'] / total_melhores_float if total_melhores_float > 0 else 0.33
+        prop_g2 = analise_30['media_melhores_g2'] / total_melhores_float if total_melhores_float > 0 else 0.33
+        prop_g3 = analise_30['media_melhores_g3'] / total_melhores_float if total_melhores_float > 0 else 0.34
+        
+        # Distribuir os piores entre os grupos baseado nas médias reais
+        total_piores_float = analise_30['media_piores_g1'] + analise_30['media_piores_g2']
+        prop_p1 = analise_30['media_piores_g1'] / total_piores_float if total_piores_float > 0 else 0.5
+        prop_p2 = analise_30['media_piores_g2'] / total_piores_float if total_piores_float > 0 else 0.5
+        
+        # Calcular targets por grupo (arredondando para manter proporções)
+        target_melhores_g1 = max(1, min(5, round(prop_g1 * m_count)))
+        target_melhores_g2 = max(1, min(5, round(prop_g2 * m_count)))
+        target_melhores_g3 = max(1, min(5, m_count - target_melhores_g1 - target_melhores_g2))
+        
+        target_piores_g1 = max(1, min(5, round(prop_p1 * p_count)))
+        target_piores_g2 = max(1, min(5, p_count - target_piores_g1))
+        
+        # Ajuste final para garantir que totalize 15
+        total_atual = (target_melhores_g1 + target_melhores_g2 + target_melhores_g3 + 
+                      target_piores_g1 + target_piores_g2)
+        
+        if total_atual != 15:
+            diferenca = 15 - total_atual
+            # Ajustar nos grupos com mais flexibilidade
+            if diferenca > 0:
+                # Adicionar aos grupos que podem receber mais
+                if target_melhores_g1 < 5:
+                    target_melhores_g1 += diferenca
+                elif target_melhores_g2 < 5:
+                    target_melhores_g2 += diferenca
+                elif target_melhores_g3 < 5:
+                    target_melhores_g3 += diferenca
+            else:
+                # Remover dos grupos que podem ceder
+                if target_melhores_g3 > 1:
+                    target_melhores_g3 += diferenca  # diferenca é negativo
+                elif target_melhores_g2 > 1:
+                    target_melhores_g2 += diferenca
+                elif target_melhores_g1 > 1:
+                    target_melhores_g1 += diferenca
+        
+        st.write(f"📋 **Distribuição para {distribuicao}:**")
+        st.write(f"  - Melhores G1: {target_melhores_g1} números")
+        st.write(f"  - Melhores G2: {target_melhores_g2} números")
+        st.write(f"  - Melhores G3: {target_melhores_g3} números")
+        st.write(f"  - Piores G1: {target_piores_g1} números")
+        st.write(f"  - Piores G2: {target_piores_g2} números")
+        st.write(f"  - **Total: {m_count}M + {p_count}P = 15 números**")
+        
+        # Gerar 2 sugestões para esta distribuição
+        tentativas = 0
+        max_tentativas = 500
+        sugestoes_distribuicao = []
+        
+        while len(sugestoes_distribuicao) < 2 and tentativas < max_tentativas:
+            tentativas += 1
+            
+            try:
+                # Selecionar números de cada grupo conforme as metas
+                selecao_melhores_g1 = random.sample(grupos_melhores[0], target_melhores_g1)
+                selecao_melhores_g2 = random.sample(grupos_melhores[1], target_melhores_g2)
+                selecao_melhores_g3 = random.sample(grupos_melhores[2], target_melhores_g3)
+                selecao_piores_g1 = random.sample(grupos_piores[0], target_piores_g1)
+                selecao_piores_g2 = random.sample(grupos_piores[1], target_piores_g2)
+                
+                # Combinar todas as seleções
+                jogo = (selecao_melhores_g1 + selecao_melhores_g2 + selecao_melhores_g3 + 
+                       selecao_piores_g1 + selecao_piores_g2)
+                
+                # Verificar se temos exatamente 15 números únicos
+                if len(jogo) == 15 and len(set(jogo)) == 15:
+                    jogo_ordenado = sorted(jogo)
+                    chave = tuple(jogo_ordenado)
+                    
+                    # Verificar se já não geramos esta combinação
+                    if not any(s['chave'] == chave for s in sugestoes + sugestoes_distribuicao):
+                        sugestoes_distribuicao.append({
+                            'chave': chave,
+                            'jogo': jogo_ordenado,
+                            'melhores_g1': selecao_melhores_g1,
+                            'melhores_g2': selecao_melhores_g2,
+                            'melhores_g3': selecao_melhores_g3,
+                            'piores_g1': selecao_piores_g1,
+                            'piores_g2': selecao_piores_g2,
+                            'total_melhores': m_count,
+                            'total_piores': p_count,
+                            'distribuicao_origem': distribuicao,
+                            'posicao_distribuicao': dist_idx + 1
+                        })
+            
+            except ValueError:
+                # Pode acontecer se tentarmos sample mais números do que existem no grupo
+                continue
+        
+        sugestoes.extend(sugestoes_distribuicao)
     
     return sugestoes
 
