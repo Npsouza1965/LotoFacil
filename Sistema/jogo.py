@@ -10,35 +10,31 @@ import random
 # PARA STREAMLIT CLOUD - caminho relativo
 CSV_PATH = 'dados/lotofacil.csv'
 
+# ---------------------------- Funções auxiliares ----------------------------
+
 def criar_arquivo_teste():
     """Cria um arquivo de dados de exemplo para teste com distribuições variadas"""
     try:
         os.makedirs('dados', exist_ok=True)
         
-        # Criar dados de exemplo com distribuições REALISTAS
         np.random.seed(42)
-        num_concursos = 100
+        num_concursos = 300  # Garantir que temos pelo menos 150 concursos para análise
         
-        # Definir distribuições REALISTAS - garantir variedade
         distribuicoes = [
-            (10, 5),  # 35% - mais comum
-            (9, 6),   # 30% - segunda mais comum  
-            (8, 7),   # 20% - terceira mais comum
-            (11, 4),  # 10% - outras
-            (7, 8)    # 5%  - outras
+            (10, 5),
+            (9, 6),
+            (8, 7),
+            (11, 4),
+            (7, 8)
         ]
         
         pesos = [35, 30, 20, 10, 5]
         
-        # Criar lista de concursos
         concursos = []
-        
         for i in range(1, num_concursos + 1):
-            # Escolher uma distribuição baseada nos pesos
             dist_idx = np.random.choice(len(distribuicoes), p=np.array(pesos)/100)
             melhores_count, piores_count = distribuicoes[dist_idx]
             
-            # Selecionar números
             numeros_melhores = np.random.choice(range(1, 16), melhores_count, replace=False)
             numeros_piores = np.random.choice(range(16, 26), piores_count, replace=False)
             
@@ -50,20 +46,14 @@ def criar_arquivo_teste():
                 'Data Sorteio': (datetime.now() - pd.Timedelta(days=num_concursos - i)).strftime('%d/%m/%Y')
             }
             
-            # Adicionar cada número em sua coluna
             for j, num in enumerate(numeros, 1):
                 concurso[f'Bola{j}'] = int(num)
-                
             concursos.append(concurso)
         
-        # Criar DataFrame
         df = pd.DataFrame(concursos)
-        
-        # Salvar arquivo
         df.to_csv(CSV_PATH, sep=';', index=False, encoding='utf-8')
         
-        st.success(f"✅ Arquivo de teste criado com {num_concursos} concursos e distribuições variadas!")
-        
+        st.success(f"✅ Arquivo de teste criado com {num_concursos} concursos!")
         return True
         
     except Exception as e:
@@ -71,12 +61,10 @@ def criar_arquivo_teste():
         return False
 
 def verificar_estrutura():
-    """Verifica e cria a estrutura de pastas necessária"""
     if not os.path.exists('dados'):
         os.makedirs('dados', exist_ok=True)
 
 def intercalar_melhores_piores(melhores_sorted, piores_sorted):
-    """Intercala elementos: melhor, pior, melhor, pior... e depois os restantes"""
     resultado = []
     max_len = max(len(melhores_sorted), len(piores_sorted))
     for i in range(max_len):
@@ -87,41 +75,30 @@ def intercalar_melhores_piores(melhores_sorted, piores_sorted):
     return resultado
 
 def analisar_distribuicao_grupos(df):
-    """Analisa a distribuição dos números nos grupos de 5"""
-    # Calcular frequência de todos os números
     todos_numeros = []
     for i in range(1, 16):
         coluna = f'Bola{i}'
         if coluna in df.columns:
             numeros_coluna = pd.to_numeric(df[coluna], errors='coerce').dropna().astype(int).tolist()
             todos_numeros.extend(numeros_coluna)
-    
     frequencia = Counter(todos_numeros)
     
-    # Ordenar números por frequência (melhores = mais frequentes)
     numeros_ordenados = sorted(range(1, 26), key=lambda x: frequencia.get(x, 0), reverse=True)
     
-    # Dividir em grupos de 5
     grupos_melhores = [
-        numeros_ordenados[0:5],   # Grupo 1 - Top 5 melhores
-        numeros_ordenados[5:10],  # Grupo 2 - Próximos 5 melhores  
-        numeros_ordenados[10:15]  # Grupo 3 - Últimos 5 melhores
+        numeros_ordenados[0:5],
+        numeros_ordenados[5:10],
+        numeros_ordenados[10:15]
     ]
-    
     grupos_piores = [
-        numeros_ordenados[15:20], # Grupo 4 - Primeiros 5 piores
-        numeros_ordenados[20:25]  # Grupo 5 - Últimos 5 piores
+        numeros_ordenados[15:20],
+        numeros_ordenados[20:25]
     ]
-    
     return grupos_melhores, grupos_piores, frequencia
 
 def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
-    """Analisa o padrão de distribuição nos últimos concursos"""
     padroes = []
-    
-    # CORREÇÃO: Já recebemos o DataFrame ordenado, não precisamos ordenar novamente
     for idx, row in df.iterrows():
-        # Coletar números do concurso
         numeros_concurso = []
         for i in range(1, 16):
             coluna = f'Bola{i}'
@@ -130,12 +107,9 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
                     numeros_concurso.append(int(row[coluna]))
                 except (ValueError, TypeError):
                     continue
-        
-        # Verificar se temos 15 números válidos
-        if len(numeros_concurso) != 15:
+        if len(numeros_concurso) != 150:
             continue
         
-        # Contar quantos números de cada grupo apareceram
         contagem_grupos = {
             'melhores_g1': len(set(numeros_concurso) & set(grupos_melhores[0])),
             'melhores_g2': len(set(numeros_concurso) & set(grupos_melhores[1])),
@@ -158,15 +132,14 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
             'total_piores': total_piores,
             'distribuicao': f"{total_melhores}m x {total_piores}p"
         })
-    
     return padroes
 
-def calcular_media_ultimos_30(padroes_recentes):
-    """Calcula médias reais dos últimos 30 concursos"""
-    if len(padroes_recentes) < 30:
+def calcular_media_ultimos(padroes_recentes, n=150):
+    """Calcula médias dos últimos N concursos"""
+    if len(padroes_recentes) < n:
         concursos_analisados = padroes_recentes
     else:
-        concursos_analisados = padroes_recentes[:30]
+        concursos_analisados = padroes_recentes[:n]
     
     # Calcular médias reais dos últimos concursos
     media_melhores_g1 = np.mean([p['melhores_g1'] for p in concursos_analisados])
@@ -175,187 +148,156 @@ def calcular_media_ultimos_30(padroes_recentes):
     media_piores_g1 = np.mean([p['piores_g1'] for p in concursos_analisados])
     media_piores_g2 = np.mean([p['piores_g2'] for p in concursos_analisados])
     
-    # Calcular distribuição M x P dos últimos concursos
-    dist_melhores_piores = Counter([p['distribuicao'] for p in concursos_analisados])
-    distribuicao_mais_comum = dist_melhores_piores.most_common(1)[0][0] if dist_melhores_piores else "10m x 5p"
-    
-    # Extrair números da distribuição mais comum
-    try:
-        m_count = int(distribuicao_mais_comum.split('m')[0])
-        p_count = int(distribuicao_mais_comum.split('x ')[1].split('p')[0])
-    except:
-        m_count = 10
-        p_count = 5
-    
     return {
         'media_melhores_g1': media_melhores_g1,
         'media_melhores_g2': media_melhores_g2,
         'media_melhores_g3': media_melhores_g3,
         'media_piores_g1': media_piores_g1,
         'media_piores_g2': media_piores_g2,
-        'distribuicao_mais_comum': distribuicao_mais_comum,
-        'target_melhores': m_count,
-        'target_piores': p_count,
         'concursos_analisados': len(concursos_analisados)
     }
 
-def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes, num_sugestoes=6):
-    """Gera sugestões baseadas nas 3 distribuições mais comuns de TODO o histórico"""
+def exibir_estatisticas_concursos(padroes_recentes, n_analise):
+    """Exibe estatísticas dos últimos N concursos de forma otimizada"""
+    
+    # Determinar quantos concursos analisar
+    n = min(n_analise, len(padroes_recentes))
+    padroes_analise = padroes_recentes[:n]
+    
+    # Calcular estatísticas
+    dist_melhores_piores = Counter([p['distribuicao'] for p in padroes_analise])
+    analise = calcular_media_ultimos(padroes_recentes, n=n)
+    
+    # Exibir informações
+    if n < n_analise:
+        st.warning(f"⚠️ Apenas {n} concursos disponíveis (ideal: {n_analise} para análise completa)")
+        st.write(f"**📈 Estatísticas dos {n} Concursos Disponíveis:**")
+    else:
+        st.write(f"**📈 Estatísticas dos Últimos {n} Concursos:**")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write(f"**Total de concursos analisados: {n}**")
+        
+        st.write("**Distribuições mais comuns:**")
+        for dist, count in dist_melhores_piores.most_common(5):
+            st.write(f"• {dist}: {count} vezes")
+    
+    with col2:
+        st.write("**Médias por grupo:**")
+        st.write(f"• Melhores G1: {analise['media_melhores_g1']:.2f}")
+        st.write(f"• Melhores G2: {analise['media_melhores_g2']:.2f}")
+        st.write(f"• Melhores G3: {analise['media_melhores_g3']:.2f}")
+        st.write(f"• Piores G1: {analise['media_piores_g1']:.2f}")
+        st.write(f"• Piores G2: {analise['media_piores_g2']:.2f}")
+
+# ---------------------------- Função principal corrigida ----------------------------
+
+def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes):
     sugestoes = []
     
-    # Usar TODOS os concursos para análise
-    todos_concursos = padroes_recentes
-    
-    # Coletar TODAS as distribuições
-    todas_distribuicoes = [padrao['distribuicao'] for padrao in todos_concursos]
-    
-    # Contar frequência
-    dist_counter = Counter(todas_distribuicoes)
-    distribuicoes_mais_comuns = dist_counter.most_common(3)
-    
-    st.write("🎯 **TOP 3 Distribuições Mais Comuns do Histórico:**")
-    for i, (dist, count) in enumerate(distribuicoes_mais_comuns, 1):
-        porcentagem = (count / len(todos_concursos)) * 100
-        st.write(f"  {i}ª: **{dist}** - {count} vezes ({porcentagem:.1f}% dos concursos)")
-    
-    # Se não temos 3 distribuições distintas, PARAR e explicar
-    if len(distribuicoes_mais_comuns) < 3:
-        st.error(f"❌ **PROBLEMA ENCONTRADO:** Apenas {len(distribuicoes_mais_comuns)} distribuições distintas foram encontradas!")
-        st.error("Isso significa que todos ou quase todos os concursos têm a mesma distribuição.")
-        st.error("Verifique seus dados - eles podem estar muito uniformes.")
-        return []
-    
-    # Extrair apenas as strings das distribuições (sem os counts)
-    distribuicoes_para_gerar = [dist for dist, count in distribuicoes_mais_comuns]
-    
+    # Analisar os últimos 150 concursos
+    ultimos_150 = padroes_recentes[:150] if len(padroes_recentes) >= 150 else padroes_recentes
+
+    # Contar distribuições nos últimos 150 concursos
+    dist_counter_150 = Counter([p['distribuicao'] for p in ultimos_150])
+    distribuicoes_mais_comuns_150 = dist_counter_150.most_common(5)
+    total_ocorrencias_150 = sum(dist_counter_150.values())
+
+    st.write("📈 **Estatísticas dos Últimos 150 Concursos:**")
+    for i, (dist, count) in enumerate(distribuicoes_mais_comuns_150, 1):
+        st.write(f"{i} - {dist}: {count} vezes")
+    st.write(f"**Total:** {total_ocorrencias_150} vezes")
     st.write("---")
-    
-    # GERAR 2 JOGOS PARA CADA UMA DAS 3 DISTRIBUIÇÕES MAIS COMUNS
-    for dist_idx, distribuicao in enumerate(distribuicoes_para_gerar):
-        if len(sugestoes) >= num_sugestoes:
-            break
-            
-        st.write(f"🚀 **INICIANDO GERAÇÃO PARA: {distribuicao}** (Posição {dist_idx + 1})")
+
+    # Verificar se temos pelo menos 3 distribuições
+    if len(distribuicoes_mais_comuns_150) < 3:
+        st.error(f"❌ Apenas {len(distribuicoes_mais_comuns_150)} distribuições distintas encontradas.")
+        return []
+
+    # Pegar as 3 distribuições mais comuns
+    top3_distribuicoes = [dist for dist, _ in distribuicoes_mais_comuns_150[:3]]
+
+    # Gerar 2 jogos para cada uma das 3 distribuições mais comuns
+    for dist_idx, distribuicao in enumerate(top3_distribuicoes):
+        st.write(f"🎯 **Gerando 2 jogos para: {distribuicao}** ({dist_idx + 1}ª distribuição mais comum)")
         
-        # Extrair m_count e p_count da distribuição real
-        try:
-            partes = distribuicao.split('m x ')
-            m_count = int(partes[0])
-            p_count = int(partes[1].replace('p', ''))
-            st.write(f"📐 Extraído: {m_count} melhores + {p_count} piores")
-        except Exception as e:
-            st.error(f"❌ Erro ao extrair distribuição {distribuicao}: {e}")
-            continue
-        
-        # DISTRIBUIÇÃO SIMPLES ENTRE GRUPOS
-        if m_count == 10 and p_count == 5:
-            targets = (4, 3, 3, 3, 2)  # G1, G2, G3, P1, P2
-        elif m_count == 9 and p_count == 6:
-            targets = (3, 3, 3, 3, 3)  # G1, G2, G3, P1, P2
-        elif m_count == 8 and p_count == 7:
-            targets = (3, 3, 2, 4, 3)  # G1, G2, G3, P1, P2
-        elif m_count == 11 and p_count == 4:
-            targets = (4, 4, 3, 2, 2)  # G1, G2, G3, P1, P2
-        else:
-            # Distribuição genérica para outras combinações
-            targets = (
-                max(1, min(5, (m_count + 1) // 3)),
-                max(1, min(5, m_count // 3)),
-                max(1, min(5, m_count - ((m_count + 1) // 3) - (m_count // 3))),
-                max(1, min(5, (p_count + 1) // 2)),
-                max(1, min(5, p_count - ((p_count + 1) // 2)))
-            )
-        
-        target_melhores_g1, target_melhores_g2, target_melhores_g3, target_piores_g1, target_piores_g2 = targets
-        
-        st.write(f"🎯 **Metas para {distribuicao}:**")
-        st.write(f"   Melhores: G1={target_melhores_g1}, G2={target_melhores_g2}, G3={target_melhores_g3}")
-        st.write(f"   Piores: P1={target_piores_g1}, P2={target_piores_g2}")
-        st.write(f"   Total: {sum(targets[:3])}M + {sum(targets[3:])}P = {sum(targets)} números")
-        
-        # VERIFICAR SE OS TARGETS SÃO POSSÍVEIS
-        if (target_melhores_g1 > 5 or target_melhores_g2 > 5 or target_melhores_g3 > 5 or 
-            target_piores_g1 > 5 or target_piores_g2 > 5):
-            st.error(f"❌ Targets impossíveis para {distribuicao}")
-            continue
-        
-        # GERAR EXATAMENTE 2 JOGOS PARA ESTA DISTRIBUIÇÃO
-        sugestoes_distribuicao = []
+        jogos_gerados = 0
         tentativas = 0
         max_tentativas = 2000
-        
-        while len(sugestoes_distribuicao) < 2 and tentativas < max_tentativas:
+
+        while jogos_gerados < 2 and tentativas < max_tentativas:
             tentativas += 1
-            
+
+            # Extrair m_count e p_count da distribuição
             try:
-                # Selecionar números de cada grupo
+                partes = distribuicao.replace('m', '').replace('p', '').split(' x ')
+                m_count = int(partes[0])
+                p_count = int(partes[1])
+            except Exception:
+                m_count, p_count = 10, 5
+
+            # Distribuição mais inteligente entre grupos
+            if m_count == 10 and p_count == 5:
+                targets = (4, 3, 3, 3, 2)  # G1, G2, G3, P1, P2
+            elif m_count == 9 and p_count == 6:
+                targets = (3, 3, 3, 3, 3)  # G1, G2, G3, P1, P2
+            elif m_count == 8 and p_count == 7:
+                targets = (3, 3, 2, 4, 3)  # G1, G2, G3, P1, P2
+            elif m_count == 11 and p_count == 4:
+                targets = (4, 4, 3, 2, 2)  # G1, G2, G3, P1, P2
+            else:
+                # Distribuição genérica
+                targets = (
+                    max(1, min(5, (m_count + 1) // 3)),
+                    max(1, min(5, m_count // 3)),
+                    max(1, min(5, m_count - ((m_count + 1) // 3) - (m_count // 3))),
+                    max(1, min(5, (p_count + 1) // 2)),
+                    max(1, min(5, p_count - ((p_count + 1) // 2)))
+                )
+
+            target_melhores_g1, target_melhores_g2, target_melhores_g3, target_piores_g1, target_piores_g2 = targets
+
+            try:
                 selecao_melhores_g1 = random.sample(grupos_melhores[0], target_melhores_g1)
                 selecao_melhores_g2 = random.sample(grupos_melhores[1], target_melhores_g2)
                 selecao_melhores_g3 = random.sample(grupos_melhores[2], target_melhores_g3)
                 selecao_piores_g1 = random.sample(grupos_piores[0], target_piores_g1)
                 selecao_piores_g2 = random.sample(grupos_piores[1], target_piores_g2)
-                
-                jogo = selecao_melhores_g1 + selecao_melhores_g2 + selecao_melhores_g3 + selecao_piores_g1 + selecao_piores_g2
-                
-                if len(jogo) == 15 and len(set(jogo)) == 15:
-                    jogo_ordenado = sorted(jogo)
-                    chave = tuple(jogo_ordenado)
-                    
-                    # Verificar duplicatas
-                    duplicata = False
-                    for s in sugestoes + sugestoes_distribuicao:
-                        if s['chave'] == chave:
-                            duplicata = True
-                            break
-                    
-                    if not duplicata:
-                        sugestoes_distribuicao.append({
-                            'chave': chave,
-                            'jogo': jogo_ordenado,
-                            'melhores_g1': selecao_melhores_g1,
-                            'melhores_g2': selecao_melhores_g2,
-                            'melhores_g3': selecao_melhores_g3,
-                            'piores_g1': selecao_piores_g1,
-                            'piores_g2': selecao_piores_g2,
-                            'total_melhores': m_count,
-                            'total_piores': p_count,
-                            'distribuicao_origem': distribuicao,
-                            'posicao_distribuicao': dist_idx + 1
-                        })
-                        
             except ValueError:
                 continue
-        
-        st.write(f"✅ **{len(sugestoes_distribuicao)} sugestões geradas para {distribuicao}** (tentativas: {tentativas})")
-        
-        # ADICIONAR as sugestões à lista principal
-        sugestoes.extend(sugestoes_distribuicao)
-        
-        # Se já temos 6 sugestões, parar
-        if len(sugestoes) >= 6:
-            break
-        
-        st.write("---")
-    
-    # RELATÓRIO FINAL DETALHADO
-    st.write("🎉 **RELATÓRIO FINAL DAS SUGESTÕES:**")
-    if sugestoes:
-        contagem_por_distribuicao = {}
-        for i, sug in enumerate(sugestoes, 1):
-            dist = sug['distribuicao_origem']
-            contagem_por_distribuicao[dist] = contagem_por_distribuicao.get(dist, 0) + 1
-            
-            total_m = len(sug['melhores_g1']) + len(sug['melhores_g2']) + len(sug['melhores_g3'])
-            total_p = len(sug['piores_g1']) + len(sug['piores_g2'])
-            st.write(f"  Sugestão {i}: {dist} (posição {sug['posicao_distribuicao']}ª) - Real: {total_m}M + {total_p}P")
-        
-        st.write("---")
-        st.write("📊 **RESUMO POR DISTRIBUIÇÃO:**")
-        for dist, count in contagem_por_distribuicao.items():
-            st.write(f"  • {dist}: {count} sugestões")
-    else:
-        st.error("❌ Nenhuma sugestão foi gerada!")
-    
+
+            jogo = selecao_melhores_g1 + selecao_melhores_g2 + selecao_melhores_g3 + selecao_piores_g1 + selecao_piores_g2
+
+            if len(jogo) == 15 and len(set(jogo)) == 15:
+                jogo_ordenado = sorted(jogo)
+                chave = tuple(jogo_ordenado)
+
+                # Verificar se já não geramos esta combinação
+                if all(s['chave'] != chave for s in sugestoes):
+                    sugestoes.append({
+                        'chave': chave,
+                        'jogo': jogo_ordenado,
+                        'distribuicao_origem': distribuicao,
+                        'posicao_distribuicao': dist_idx + 1,
+                        'melhores_g1': selecao_melhores_g1,
+                        'melhores_g2': selecao_melhores_g2,
+                        'melhores_g3': selecao_melhores_g3,
+                        'piores_g1': selecao_piores_g1,
+                        'piores_g2': selecao_piores_g2
+                    })
+                    jogos_gerados += 1
+
+        st.write(f"✅ **{jogos_gerados} jogos gerados para {distribuicao}**")
+
+    st.write("---")
+    st.write("🎉 **Resumo Final das Sugestões:**")
+    for i, s in enumerate(sugestoes, 1):
+        total_m = len(s['melhores_g1']) + len(s['melhores_g2']) + len(s['melhores_g3'])
+        total_p = len(s['piores_g1']) + len(s['piores_g2'])
+        st.write(f"{i}️⃣ {s['distribuicao_origem']} (posição {s['posicao_distribuicao']}ª distribuição) - Real: {total_m}M + {total_p}P")
+
     return sugestoes
 
 def exibir_jogo():
@@ -368,12 +310,12 @@ def exibir_jogo():
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🧪 Criar Dados de Teste", type="primary", width='stretch'):
+            if st.button("🧪 Criar Dados de Teste", type="primary", key='criar_teste'):
                 if criar_arquivo_teste():
                     st.rerun()
         
         with col2:
-            if st.button("📤 Fazer Upload", width='stretch'):
+            if st.button("📤 Fazer Upload", key='fazer_upload'):
                 pass
         
         st.markdown("---")
@@ -422,20 +364,13 @@ def exibir_jogo():
         # Analisar padrões recentes
         padroes_recentes = analisar_padrao_concursos(df, grupos_melhores, grupos_piores)
         
-        # DEBUG: Verificação dos concursos analisados
-        st.write("🔍 **DEBUG - Verificação dos concursos analisados:**")
-        st.write(f"Total de padrões encontrados: {len(padroes_recentes)}")
-        if padroes_recentes:
-            st.write(f"Concursos analisados (primeiros 5): {[p['concurso'] for p in padroes_recentes[:5]]}")
-            st.write(f"Concursos analisados (últimos 5): {[p['concurso'] for p in padroes_recentes[-5:]]}")
-        
         # Mostrar análise dos últimos concursos
         st.markdown("---")
         st.subheader("📊 Análise dos Últimos Concursos")
         
         if padroes_recentes:
-            # Criar DataFrame para exibição
-            df_padroes = pd.DataFrame(padroes_recentes[:30])
+            # Criar DataFrame para exibição (apenas primeiros 30 padrões para visualização)
+            df_padroes = pd.DataFrame(padroes_recentes[:150])
             
             # Exibir tabela
             st.dataframe(
@@ -455,43 +390,21 @@ def exibir_jogo():
                 height=400
             )
             
-            # Estatísticas dos últimos 30
-            if len(padroes_recentes) >= 30:
-                analise_30 = calcular_media_ultimos_30(padroes_recentes)
-                
-                st.write("**📈 Estatísticas dos Últimos 30 Concursos:**")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    dist_melhores_piores = Counter([p['distribuicao'] for p in padroes_recentes[:30]])
-                    # VERIFICAÇÃO: Mostrar o total para confirmar que são 30
-                    total_concursos = sum(dist_melhores_piores.values())
-                    st.write(f"**Total de concursos analisados: {total_concursos}**")
-                    
-                    st.write("**Distribuições mais comuns:**")
-                    for dist, count in dist_melhores_piores.most_common(5):
-                        st.write(f"• {dist}: {count} vezes")
-                
-                with col2:
-                    st.write("**Médias por grupo:**")
-                    st.write(f"• Melhores G1: {analise_30['media_melhores_g1']:.2f}")
-                    st.write(f"• Melhores G2: {analise_30['media_melhores_g2']:.2f}")
-                    st.write(f"• Melhores G3: {analise_30['media_melhores_g3']:.2f}")
-                    st.write(f"• Piores G1: {analise_30['media_piores_g1']:.2f}")
-                    st.write(f"• Piores G2: {analise_30['media_piores_g2']:.2f}")
-        
+            # ESTATÍSTICAS DOS ÚLTIMOS CONCURSOS (CÓDIGO OTIMIZADO)
+            exibir_estatisticas_concursos(padroes_recentes, 150)
+
         # SUGESTÕES INTELIGENTES
         st.markdown("---")
         st.subheader("💡 Sugestões Inteligentes Baseadas nas 3 Distribuições Mais Comuns")
 
-        if st.button("🎯 Gerar 6 Sugestões (2 para cada das 3 distribuições mais comuns)", type="primary", width='stretch'):
+        if st.button("🎯 Gerar 6 Sugestões (2 para cada das 3 distribuições mais comuns)", type="primary", key='gerar_sugestoes'):
             if not padroes_recentes:
                 st.error("❌ Não há dados suficientes para análise")
             else:
                 sugestoes = gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes)
                 
                 if sugestoes:
-                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns do histórico!")
+                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns dos últimos 150 concursos!")
                     
                     for i, sugestao in enumerate(sugestoes, 1):
                         st.markdown(f"##### 💡 Sugestão {i} - {sugestao['distribuicao_origem']} ({sugestao['posicao_distribuicao']}ª distribuição mais comum)")
@@ -545,30 +458,21 @@ def exibir_jogo():
                                 
                                 st.markdown(
                                     f"""
-                                    <div style='
-                                        text-align: center; 
-                                        padding: 12px; 
-                                        border: 3px solid {cor}; 
-                                        border-radius: 10px; 
-                                        margin: 3px; 
-                                        background: white;
-                                        font-size: 1.1em;
-                                        font-weight: bold;
-                                        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                                        color: #000000;
-                                    '>{num}</div>
+                                    <div style='text-align: center; padding: 12px; border: 3px solid {cor}; border-radius: 10px; margin: 3px; background: white; font-size: 1.1em; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); color: #000000;'>{num}</div>
                                     """,
                                     unsafe_allow_html=True
                                 )
                         
                         st.markdown("---")
+                else:
+                    st.error("❌ Não foi possível gerar sugestões com os padrões atuais")
         
         # Botão para recarregar arquivo
         st.markdown("---")
         col_rec1, col_rec2, col_rec3 = st.columns([1, 1, 1])
         
         with col_rec2:
-            if st.button("🔄 Carregar Novo Arquivo CSV", width='stretch'):
+            if st.button("🔄 Carregar Novo Arquivo CSV", key='recarregar_csv'):
                 if os.path.exists(CSV_PATH):
                     os.remove(CSV_PATH)
                 st.rerun()
