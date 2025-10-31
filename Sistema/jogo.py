@@ -134,7 +134,7 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
         })
     return padroes
 
-def calcular_media_ultimos(padroes_recentes, n=150):
+def calcular_media_ultimos(padroes_recentes, n=2000):
     """Calcula médias dos últimos N concursos"""
     if len(padroes_recentes) < n:
         concursos_analisados = padroes_recentes
