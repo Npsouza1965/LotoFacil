@@ -89,7 +89,7 @@ def criar_arquivo_teste():
         
         # Criar dados de exemplo CORRETOS
         np.random.seed(42)
-        num_concursos = 200  # Aumentado para ter pelo menos 150 concursos
+        num_concursos = 200  # Aumentado para ter pelo menos 2000 concursos
         
         # Criar lista de concursos
         concursos = []
@@ -209,13 +209,13 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
     
     return padroes
 
-def calcular_media_ultimos_150(padroes_recentes):
-    """Calcula médias reais dos últimos 150 concursos"""
-    if len(padroes_recentes) < 150:
-        st.warning(f"⚠️ Apenas {len(padroes_recentes)} concursos disponíveis (ideal: 150)")
+def calcular_media_ultimos_2000(padroes_recentes):
+    """Calcula médias reais dos últimos 2000 concursos"""
+    if len(padroes_recentes) < 2000:
+        st.warning(f"⚠️ Apenas {len(padroes_recentes)} concursos disponíveis (ideal: 2000)")
         concursos_analisados = padroes_recentes
     else:
-        concursos_analisados = padroes_recentes[:150]
+        concursos_analisados = padroes_recentes[:2000]
     
     # Calcular médias reais dos últimos concursos
     media_melhores_g1 = np.mean([p['melhores_g1'] for p in concursos_analisados])
@@ -279,33 +279,33 @@ def calcular_distribuicao_por_grupo(distribuicao):
         )
 
 def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes):
-    """Gera 6 sugestões baseadas nas 3 distribuições mais comuns dos últimos 150 concursos"""
+    """Gera 6 sugestões baseadas nas 3 distribuições mais comuns dos últimos 2000 concursos"""
     sugestoes = []
     
-    # Analisar os últimos 150 concursos
-    analise_150 = calcular_media_ultimos_150(padroes_recentes)
+    # Analisar os últimos 2000 concursos
+    analise_2000 = calcular_media_ultimos_2000(padroes_recentes)
     
-    st.write(f"📊 **Análise dos Últimos {analise_150['concursos_analisados']} Concursos:**")
+    st.write(f"📊 **Análise dos Últimos {analise_2000['concursos_analisados']} Concursos:**")
     
     # Mostrar distribuições mais comuns
     st.write("**🎯 Distribuições Mais Comuns:**")
-    distribuicoes_mais_comuns = analise_150['distribuicoes_mais_comuns']
+    distribuicoes_mais_comuns = analise_2000['distribuicoes_mais_comuns']
     
     for i, (distribuicao, count) in enumerate(distribuicoes_mais_comuns[:5], 1):  # Mostrar apenas top 5
         st.write(f"{i}º - {distribuicao}: {count} vezes")
     
     # Mostrar total para verificação
     total_exibido = sum(count for _, count in distribuicoes_mais_comuns[:5])
-    outros = analise_150['total_concursos'] - total_exibido
+    outros = analise_2000['total_concursos'] - total_exibido
     if outros > 0:
         st.write(f"• Outras distribuições: {outros} vezes")
     
-    st.write(f"**📈 Médias por grupo (últimos 150):**")
-    st.write(f"• Melhores G1: {analise_150['media_melhores_g1']:.2f}")
-    st.write(f"• Melhores G2: {analise_150['media_melhores_g2']:.2f}")
-    st.write(f"• Melhores G3: {analise_150['media_melhores_g3']:.2f}")
-    st.write(f"• Piores G1: {analise_150['media_piores_g1']:.2f}")
-    st.write(f"• Piores G2: {analise_150['media_piores_g2']:.2f}")
+    st.write(f"**📈 Médias por grupo (últimos 2000):**")
+    st.write(f"• Melhores G1: {analise_2000['media_melhores_g1']:.2f}")
+    st.write(f"• Melhores G2: {analise_2000['media_melhores_g2']:.2f}")
+    st.write(f"• Melhores G3: {analise_2000['media_melhores_g3']:.2f}")
+    st.write(f"• Piores G1: {analise_2000['media_piores_g1']:.2f}")
+    st.write(f"• Piores G2: {analise_2000['media_piores_g2']:.2f}")
     
     # Verificar se temos pelo menos 3 distribuições
     if len(distribuicoes_mais_comuns) < 3:
@@ -544,38 +544,38 @@ def exibir_jogo():
                 height=400
             )
             
-            # Estatísticas dos últimos 150
-            if len(padroes_recentes) >= 150:
-                analise_150 = calcular_media_ultimos_150(padroes_recentes)
+            # Estatísticas dos últimos 2000
+            if len(padroes_recentes) >= 2000:
+                analise_2000 = calcular_media_ultimos_2000(padroes_recentes)
                 
-                st.write("**📈 Estatísticas dos Últimos 150 Concursos:**")
+                st.write("**📈 Estatísticas dos Últimos 2000 Concursos:**")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.write(f"**Total de concursos analisados: {analise_150['total_concursos']}**")
+                    st.write(f"**Total de concursos analisados: {analise_2000['total_concursos']}**")
                     
                     st.write("**Distribuições mais comuns:**")
-                    for dist, count in analise_150['distribuicoes_mais_comuns'][:5]:  # Mostrar apenas top 5
+                    for dist, count in analise_2000['distribuicoes_mais_comuns'][:5]:  # Mostrar apenas top 5
                         st.write(f"• {dist}: {count} vezes")
                     
                     # Mostrar outras distribuições se houver
-                    outros = analise_150['total_concursos'] - sum(count for _, count in analise_150['distribuicoes_mais_comuns'][:5])
+                    outros = analise_2000['total_concursos'] - sum(count for _, count in analise_2000['distribuicoes_mais_comuns'][:5])
                     if outros > 0:
                         st.write(f"• **Outras distribuições: {outros} vezes**")
                 
                 with col2:
                     st.write("**Médias por grupo:**")
-                    st.write(f"• Melhores G1: {analise_150['media_melhores_g1']:.2f}")
-                    st.write(f"• Melhores G2: {analise_150['media_melhores_g2']:.2f}")
-                    st.write(f"• Melhores G3: {analise_150['media_melhores_g3']:.2f}")
-                    st.write(f"• Piores G1: {analise_150['media_piores_g1']:.2f}")
-                    st.write(f"• Piores G2: {analise_150['media_piores_g2']:.2f}")
+                    st.write(f"• Melhores G1: {analise_2000['media_melhores_g1']:.2f}")
+                    st.write(f"• Melhores G2: {analise_2000['media_melhores_g2']:.2f}")
+                    st.write(f"• Melhores G3: {analise_2000['media_melhores_g3']:.2f}")
+                    st.write(f"• Piores G1: {analise_2000['media_piores_g1']:.2f}")
+                    st.write(f"• Piores G2: {analise_2000['media_piores_g2']:.2f}")
             else:
-                st.warning(f"⚠️ Apenas {len(padroes_recentes)} concursos disponíveis (ideal: 150 para análise completa)")
+                st.warning(f"⚠️ Apenas {len(padroes_recentes)} concursos disponíveis (ideal: 2000 para análise completa)")
         
         # SUGESTÕES INTELIGENTES
         st.markdown("---")
-        st.subheader("💡 Sugestões Inteligentes Baseadas nas 3 Distribuições Mais Comuns dos Últimos 150 Concursos")
+        st.subheader("💡 Sugestões Inteligentes Baseadas nas 3 Distribuições Mais Comuns dos Últimos 2000 Concursos")
         
         if st.button("🎯 Gerar 6 Sugestões (2 para cada das 3 distribuições mais comuns)", type="primary", use_container_width=True):
             if not padroes_recentes:
@@ -584,7 +584,7 @@ def exibir_jogo():
                 sugestoes = gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes)
                 
                 if sugestoes:
-                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns dos últimos 150 concursos!")
+                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns dos últimos 2000 concursos!")
                     
                     # Resumo das sugestões geradas
                     st.write("---")
@@ -892,7 +892,7 @@ elif opcao == "ℹ️ Sobre":
     **Lotofácil Analyzer**
     
     **Funcionalidades:**
-    - 📊 Análise avançada de jogos e estatísticas (últimos 150 concursos)
+    - 📊 Análise avançada de jogos e estatísticas (últimos 2000 concursos)
     - 🎯 6 sugestões inteligentes (2 para cada das 3 distribuições mais comuns)
     - 📁 Visualização completa de dados históricos  
     - 🔄 Atualização de dados via formulário
@@ -905,7 +905,7 @@ elif opcao == "ℹ️ Sobre":
     
     **Análises disponíveis:**
     - Frequência de números por grupos
-    - Padrões dos últimos 150 concursos
+    - Padrões dos últimos 2000 concursos
     - Distribuição Melhores x Piores
     - 6 sugestões baseadas nas 3 distribuições mais comuns
     
