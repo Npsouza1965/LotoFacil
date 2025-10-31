@@ -18,7 +18,7 @@ def criar_arquivo_teste():
         os.makedirs('dados', exist_ok=True)
         
         np.random.seed(42)
-        num_concursos = 300  # Garantir que temos pelo menos 150 concursos para análise
+        num_concursos = 2500  # Aumentado para garantir pelo menos 2000 concursos
         
         distribuicoes = [
             (10, 5),
@@ -107,7 +107,10 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
                     numeros_concurso.append(int(row[coluna]))
                 except (ValueError, TypeError):
                     continue
-        if len(numeros_concurso) != 2000:
+        
+        # CORREÇÃO PRINCIPAL: Removida a verificação que limitava a 15 números
+        # A Lotofácil sempre tem 15 números, então se tivermos 15, está correto
+        if len(numeros_concurso) != 15:
             continue
         
         contagem_grupos = {
@@ -197,27 +200,27 @@ def exibir_estatisticas_concursos(padroes_recentes, n_analise):
 def gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes):
     sugestoes = []
     
-    # Analisar os últimos 150 concursos
-    ultimos_150 = padroes_recentes[:150] if len(padroes_recentes) >= 150 else padroes_recentes
+    # Analisar os últimos 2000 concursos
+    ultimos_2000 = padroes_recentes[:2000] if len(padroes_recentes) >= 2000 else padroes_recentes
 
-    # Contar distribuições nos últimos 150 concursos
-    dist_counter_150 = Counter([p['distribuicao'] for p in ultimos_150])
-    distribuicoes_mais_comuns_150 = dist_counter_150.most_common(5)
-    total_ocorrencias_150 = sum(dist_counter_150.values())
+    # Contar distribuições nos últimos 2000 concursos
+    dist_counter_2000 = Counter([p['distribuicao'] for p in ultimos_2000])
+    distribuicoes_mais_comuns_2000 = dist_counter_2000.most_common(5)
+    total_ocorrencias_2000 = sum(dist_counter_2000.values())
 
-    st.write("📈 **Estatísticas dos Últimos 150 Concursos:**")
-    for i, (dist, count) in enumerate(distribuicoes_mais_comuns_150, 1):
+    st.write("📈 **Estatísticas dos Últimos 2000 Concursos:**")
+    for i, (dist, count) in enumerate(distribuicoes_mais_comuns_2000, 1):
         st.write(f"{i} - {dist}: {count} vezes")
-    st.write(f"**Total:** {total_ocorrencias_150} vezes")
+    st.write(f"**Total:** {total_ocorrencias_2000} vezes")
     st.write("---")
 
     # Verificar se temos pelo menos 3 distribuições
-    if len(distribuicoes_mais_comuns_150) < 3:
-        st.error(f"❌ Apenas {len(distribuicoes_mais_comuns_150)} distribuições distintas encontradas.")
+    if len(distribuicoes_mais_comuns_2000) < 3:
+        st.error(f"❌ Apenas {len(distribuicoes_mais_comuns_2000)} distribuições distintas encontradas.")
         return []
 
     # Pegar as 3 distribuições mais comuns
-    top3_distribuicoes = [dist for dist, _ in distribuicoes_mais_comuns_150[:3]]
+    top3_distribuicoes = [dist for dist, _ in distribuicoes_mais_comuns_2000[:3]]
 
     # Gerar 2 jogos para cada uma das 3 distribuições mais comuns
     for dist_idx, distribuicao in enumerate(top3_distribuicoes):
@@ -370,7 +373,7 @@ def exibir_jogo():
         
         if padroes_recentes:
             # Criar DataFrame para exibição (apenas primeiros 30 padrões para visualização)
-            df_padroes = pd.DataFrame(padroes_recentes[:150])
+            df_padroes = pd.DataFrame(padroes_recentes[:30])  # Mostrar apenas 30 para visualização
             
             # Exibir tabela
             st.dataframe(
@@ -391,7 +394,7 @@ def exibir_jogo():
             )
             
             # ESTATÍSTICAS DOS ÚLTIMOS CONCURSOS (CÓDIGO OTIMIZADO)
-            exibir_estatisticas_concursos(padroes_recentes, 150)
+            exibir_estatisticas_concursos(padroes_recentes, 2000)
 
         # SUGESTÕES INTELIGENTES
         st.markdown("---")
@@ -404,7 +407,7 @@ def exibir_jogo():
                 sugestoes = gerar_sugestoes_inteligentes(grupos_melhores, grupos_piores, padroes_recentes)
                 
                 if sugestoes:
-                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns dos últimos 150 concursos!")
+                    st.success(f"🎉 {len(sugestoes)} sugestões geradas com base nas 3 distribuições mais comuns dos últimos 2000 concursos!")
                     
                     for i, sugestao in enumerate(sugestoes, 1):
                         st.markdown(f"##### 💡 Sugestão {i} - {sugestao['distribuicao_origem']} ({sugestao['posicao_distribuicao']}ª distribuição mais comum)")
