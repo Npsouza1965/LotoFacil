@@ -107,7 +107,7 @@ def analisar_padrao_concursos(df, grupos_melhores, grupos_piores):
                     numeros_concurso.append(int(row[coluna]))
                 except (ValueError, TypeError):
                     continue
-        if len(numeros_concurso) != 150:
+        if len(numeros_concurso) != 2000:
             continue
         
         contagem_grupos = {
